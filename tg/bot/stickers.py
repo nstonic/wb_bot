@@ -89,11 +89,11 @@ def create_stickers_by_article(
     pdf_file.name = f'{product.article}.pdf'
     pdf = BaseDocTemplate(pdf_file, showBoundary=0)
 
-    font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), settings.BARCODE_FONT_FILE)
-    pdfmetrics.registerFont(TTFont(settings.BARCODE_FONT_NAME, font_path))
+    font_path = os.path.join(pathlib.Path(__file__).parent.resolve(), settings.BOT_BARCODE_FONT_FILE)
+    pdfmetrics.registerFont(TTFont(settings.BOT_BARCODE_FONT_NAME, font_path))
     sticker_size = (120 * mm, 75 * mm)
     style = getSampleStyleSheet()['BodyText']
-    style.fontName = settings.BARCODE_FONT_NAME
+    style.fontName = settings.BOT_BARCODE_FONT_NAME
     style.fontSize = 9.5
     style.leading = 10
     frame_sticker = Frame(0, 0, *sticker_size)

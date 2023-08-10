@@ -1,5 +1,6 @@
 from collections import Counter
 from contextlib import suppress
+from enum import Enum
 
 from django.conf import settings
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, TelegramError  # noqa
@@ -8,10 +9,13 @@ from telegram.ext import CallbackContext  # noqa
 from .stickers import get_supply_sticker, get_orders_stickers
 from .utils import Paginator
 from ..models import Supply
-from wb_api import WBApiClient, SupplyFilter
+from wb_api import WBApiClient
 
-_SUPPLIES_QUANTITY = settings.SUPPLIES_QUANTITY
-_PAGE_SIZE = settings.PAGINATOR_PAGE_SIZE
+
+class SupplyFilter(Enum):
+    ALL = lambda s: True  # noqa
+    ACTIVE = lambda s: not s.is_done  # noqa
+    CLOSED = lambda s: s.is_done  # noqa
 
 
 def answer_to_user(
@@ -77,8 +81,8 @@ def show_supplies(
         update: Update,
         context: CallbackContext,
         page_number: int = 1,
-        quantity: int = _SUPPLIES_QUANTITY,
-        page_size: int = _PAGE_SIZE,
+        quantity: int = settings.BOT_MAX_SUPPLIES_QUANTITY,
+        page_size: int = settings.BOT_PAGINATOR_PAGE_SIZE,
         only_active: bool = True
 ):
     wb_client = WBApiClient()
@@ -133,7 +137,7 @@ def show_new_orders(
         update: Update,
         context: CallbackContext,
         page_number: int = 1,
-        page_size: int = _PAGE_SIZE
+        page_size: int = settings.BOT_PAGINATOR_PAGE_SIZE
 ):
     wb_client = WBApiClient()
     new_orders = wb_client.get_new_orders()
@@ -214,7 +218,7 @@ def edit_supply(
         context: CallbackContext,
         supply_id: str,
         page_number: int = 1,
-        page_size: int = _PAGE_SIZE
+        page_size: int = settings.BOT_PAGINATOR_PAGE_SIZE
 ):
     wb_client = WBApiClient()
     keyboard = [[InlineKeyboardButton('Вернуться к поставке', callback_data=f'supply_{supply_id}')]]

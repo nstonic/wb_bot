@@ -1,6 +1,5 @@
 from datetime import datetime
 from dataclasses import dataclass
-from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -83,9 +82,3 @@ class Product:
             countries=characteristics.get('Страна производства', []),
             media_files=product_card.get('mediaFiles', [])
         )
-
-
-class SupplyFilter(Enum):
-    ALL = lambda s: True  # noqa
-    ACTIVE = lambda s: not s.is_done  # noqa
-    CLOSED = lambda s: s.is_done  # noqa
