@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Все сотрудники{% endblock %}
+{% block swich_view %}
+    <a class="nav-link" href="{% url 'staff' %}">По отделам</a>
+{% endblock %}
+{% block content %}
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th scope="col">ФИО</th>
+            <th scope="col">Отдел</th>
+            <th scope="col">Должность</th>
+            <th scope="col">ДР</th>
+            <th scope="col">Сотовый</th>
+            <th scope="col">Внутр.</th>
+            <th scope="col">Email</th>
+            <th scope="col">ICQ</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for worker in worker_list %}
+            <tr>
+                <td style="font-size:14px">{{ worker.last_name }} {{ worker.first_name }} {{ worker.middle_name }}</td>
+                <td style="font-size:14px">{{ worker.department | default:"---" }}</td>
+                <td style="font-size:14px">{{ worker.position | default:"---" }}</td>
+                <td style="font-size:14px">{{ worker.birth_day | date:"d.m.y" }}</td>
+                <td style="font-size:14px">{{ worker.cell_phone.as_international | default:"---" }}</td>
+                <td style="font-size:14px">{{ worker.inner_phone | default:"---" }}</td>
+                <td style="font-size:14px">{{ worker.email | default:"---" }}</td>
+                <td style="font-size:14px">{{ worker.icq | default:"---" }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

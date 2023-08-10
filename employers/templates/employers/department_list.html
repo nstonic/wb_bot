@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Все сотрудники{% endblock %}
+{% block swich_view %}
+    <a class="nav-link" href="{% url 'workers_table' %}">В виде таблицы</a>
+{% endblock %}
+{% block content %}
+    {% for department in department_list %}
+        {% if department.is_root_node %}
+            {% include "employers/tree_view_template.html" %}
+        {% endif %}
+    {% endfor %}
+{% endblock %}

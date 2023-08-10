@@ -1,0 +1,87 @@
+<div class="d-grid gap-2">
+    <button type="button" class="btn alert alert-light" data-bs-toggle="modal" data-bs-target="#worker{{ worker.pk }}">
+        <div class="container text-left">
+            <div class="row">
+                <div class="col">
+                    {{ worker.last_name }} {{ worker.first_name }} {{ worker.middle_name }}
+                </div>
+                <div class="col">
+                    {{ worker.position | default:"---" }}
+                </div>
+                <div class="col">
+                    {{ worker.inner_phone | default:"---" }}
+                </div>
+            </div>
+        </div>
+    </button>
+</div>
+
+<div class="modal fade" id="worker{{ worker.pk }}" data-bs-keyboard="false" tabindex="-1"
+     aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5"
+                    id="staticBackdropLabel">{{ worker.last_name }} {{ worker.first_name }} {{ worker.middle_name }}</h1>
+                <a href="{% url "admin:employers_worker_change" object_id=worker.pk %}?next={{ current_url | urlencode }}">Редактировать</a>
+            </div>
+            <div class="modal-body">
+                <ul class="list-group">
+                    <li class="list-group-item list-group-item-light container text-left">
+                        <div class="row">
+                            <div class="col-4">
+                                Телефон
+                            </div>
+                            <div class="col-8">
+                                {{ worker.cell_phone.as_international | default:"---" }}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="list-group-item list-group-item-light container text-left">
+                        <div class="row">
+                            <div class="col-4">
+                                Внутренний номер
+                            </div>
+                            <div class="col-8">
+                                {{ worker.inner_phone | default:"---" }}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="list-group-item list-group-item-light container text-left">
+                        <div class="row">
+                            <div class="col-4">
+                                Email
+                            </div>
+                            <div class="col-8">
+                                {{ worker.email | default:"---" }}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="list-group-item list-group-item-light container text-left">
+                        <div class="row">
+                            <div class="col-4">
+                                ICQ
+                            </div>
+                            <div class="col-8">
+                                {{ worker.icq | default:"---" }}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="list-group-item list-group-item-light container text-left">
+                        <div class="row">
+                            <div class="col-4">
+                                День рождения
+                            </div>
+                            <div class="col-8">
+                                {{ worker.birth_day | date:"d.m.y" }}
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>

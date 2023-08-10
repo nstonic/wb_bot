@@ -16,7 +16,7 @@ from reportlab.platypus import Image, Frame, PageBreak
 from reportlab.platypus.para import Paragraph
 from reportlab.platypus.tables import Table
 
-from ..wb_api.models import Order, Product, OrderQRCode, SupplyQRCode
+from wb_api.models import Order, Product, OrderQRCode, SupplyQRCode
 
 
 def get_supply_sticker(supply_qr_code: SupplyQRCode) -> bytes:

@@ -1,5 +1,7 @@
 from telegram import Update  # noqa
 from telegram.ext import CallbackContext  # noqa
+
+from employers.models import Worker
 from .handlers import (
     show_start_menu,
     show_supplies,
@@ -133,7 +135,10 @@ def handle_edit_supply(update: Update, context: CallbackContext):
         return show_order_details(update, context, int(order_id), supply_id)
 
 
-def handle_users_reply(update: Update, context: CallbackContext, user_ids: int):
+def handle_users_reply(update: Update, context: CallbackContext):
+    users = Worker.objects.filter(has_access_to_wb_bot=True)
+    user_ids = [user.tg_id for user in users]
+
     if update.effective_chat.id not in user_ids:
         return
 
