@@ -21,8 +21,13 @@ from .handlers import (
     send_supply_qr_code,
     show_waiting_orders
 )
+from .router import Router
+
+router = Router()
+router['START'] = show_start_menu
 
 
+@router.register('HANDLE_MAIN_MENU')
 def handle_main_menu(update: Update, context: CallbackContext):
     query = update.callback_query.data
     actions = {
@@ -34,6 +39,7 @@ def handle_main_menu(update: Update, context: CallbackContext):
         return action(update, context)
 
 
+@router.register('HANDLE_SUPPLIES_MENU')
 def handle_supplies_menu(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('supply_'):
@@ -53,6 +59,7 @@ def handle_supplies_menu(update: Update, context: CallbackContext):
         )
 
 
+@router.register('HANDLE_SUPPLY')
 def handle_supply(update: Update, context: CallbackContext):
     query = update.callback_query.data
     _, supply_id = query.split('_', maxsplit=1)
@@ -70,6 +77,7 @@ def handle_supply(update: Update, context: CallbackContext):
         return show_supplies(update, context)
 
 
+@router.register('HANDLE_CONFIRMATION_TO_CLOSE_SUPPLY')
 def handle_confirmation_to_close_supply(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('yes_'):
@@ -79,6 +87,7 @@ def handle_confirmation_to_close_supply(update: Update, context: CallbackContext
         return show_supplies(update, context)
 
 
+@router.register('HANDLE_ORDER_DETAILS')
 def handle_order_details(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('add_to_supply_'):
@@ -90,6 +99,7 @@ def handle_order_details(update: Update, context: CallbackContext):
         return show_new_orders(update, context)
 
 
+@router.register('HANDLE_NEW_SUPPLY_NAME')
 def handle_new_supply_name(update: Update, context: CallbackContext):
     if update.message:
         return create_new_supply(update, context)
@@ -97,6 +107,7 @@ def handle_new_supply_name(update: Update, context: CallbackContext):
         return show_supplies(update, context)
 
 
+@router.register('HANDLE_NEW_ORDERS')
 def handle_new_orders(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('page_'):
@@ -107,6 +118,7 @@ def handle_new_orders(update: Update, context: CallbackContext):
         return show_new_order_details(update, context, order_id)
 
 
+@router.register('HANDLE_SUPPLY_CHOICE')
 def handle_supply_choice(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query == 'new_supply':
@@ -115,6 +127,7 @@ def handle_supply_choice(update: Update, context: CallbackContext):
         return add_order_to_supply(update, context)
 
 
+@router.register('HANDLE_EDIT_SUPPLY')
 def handle_edit_supply(update: Update, context: CallbackContext):
     query = update.callback_query.data
     if query.startswith('page_'):
@@ -162,23 +175,9 @@ def handle_users_reply(update: Update, context: CallbackContext):
                 message_id=update.message.message_id
             )
             return
-
-    state_functions = {
-        'START': show_start_menu,
-        'HANDLE_MAIN_MENU': handle_main_menu,
-        'HANDLE_SUPPLIES_MENU': handle_supplies_menu,
-        'HANDLE_NEW_ORDERS': handle_new_orders,
-        'HANDLE_SUPPLY': handle_supply,
-        'HANDLE_ORDER_DETAILS': handle_order_details,
-        'HANDLE_NEW_SUPPLY_NAME': handle_new_supply_name,
-        'HANDLE_SUPPLY_CHOICE': handle_supply_choice,
-        'HANDLE_EDIT_SUPPLY': handle_edit_supply,
-        'HANDLE_CONFIRMATION_TO_CLOSE_SUPPLY': handle_confirmation_to_close_supply
-    }
-
-    state_handler = state_functions.get(user_state, show_start_menu)
+    state_handler = router.get(user_state, show_start_menu)
     next_state = state_handler(
         update=update,
         context=context
-    ) or user_state
+    )
     context.user_data['state'] = next_state

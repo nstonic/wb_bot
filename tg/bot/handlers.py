@@ -6,11 +6,10 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Telegra
 from telegram.ext import CallbackContext  # noqa
 
 from .stickers import get_supply_sticker, get_orders_stickers
-from .utils import PaginatorItem, Paginator
+from .utils import Paginator
 from ..models import Supply
 from wb_api import WBApiClient, SupplyFilter
 
-_MAIN_MENU_BUTTON = InlineKeyboardButton('Основное меню', callback_data='start')
 _SUPPLIES_QUANTITY = settings.SUPPLIES_QUANTITY
 _PAGE_SIZE = settings.PAGINATOR_PAGE_SIZE
 
@@ -28,7 +27,7 @@ def answer_to_user(
         keyboard = []
 
     if add_main_menu_button:
-        keyboard.append([_MAIN_MENU_BUTTON])
+        keyboard.append([InlineKeyboardButton('Основное меню', callback_data='start')])
 
     if edit_current_message:
         try:
@@ -77,7 +76,7 @@ def show_start_menu(update: Update, context: CallbackContext):
 def show_supplies(
         update: Update,
         context: CallbackContext,
-        page_number: int = 0,
+        page_number: int = 1,
         quantity: int = _SUPPLIES_QUANTITY,
         page_size: int = _PAGE_SIZE,
         only_active: bool = True
@@ -104,34 +103,28 @@ def show_supplies(
             [InlineKeyboardButton('Показать закрытые поставки', callback_data='closed_supplies')]
         )
     if supplies:
-        paginator_items = [
-            PaginatorItem(
-                callback_data=supply.id,
-                button_text=str(supply)
-            )
-            for supply in supplies
-        ]
-        paginator = Paginator(paginator_items, page_size)
+        paginator = Paginator(
+            supplies,
+            button_text_getter=lambda s: str(s),
+            button_callback_data_getter=lambda s: s.id,
+            page_size=page_size,
+        )
         paginator_keyboard = paginator.get_keyboard(
             page_number=page_number,
             callback_data_prefix='supply_',
-            page_callback_data_postfix=f'_{only_active}',
-            main_menu_button=_MAIN_MENU_BUTTON
+            page_callback_data_postfix=f'_{only_active}'
         )
         keyboard = paginator_keyboard + keyboard
-        add_main_menu_button = False
         text = 'Список поставок'
         if paginator.is_paginated:
-            text = f'{text}\n(стр. {page_number + 1})'
+            text = f'{text}\n(стр. {paginator.current_page})'
     else:
         text = 'У вас еще нет поставок. Создайте первую'
-        add_main_menu_button = True
     answer_to_user(
         update,
         context,
         text,
         keyboard,
-        add_main_menu_button=add_main_menu_button,
         edit_current_message=True
     )
     return 'HANDLE_SUPPLIES_MENU'
@@ -140,41 +133,34 @@ def show_supplies(
 def show_new_orders(
         update: Update,
         context: CallbackContext,
-        page_number: int = 0,
+        page_number: int = 1,
         page_size: int = _PAGE_SIZE
 ):
     wb_client = WBApiClient()
     new_orders = wb_client.get_new_orders()
     if new_orders:
         sorted_orders = sorted(new_orders, key=lambda o: o.created_at)
-        paginator_items = [
-            PaginatorItem(
-                callback_data=str(order.id),
-                button_text=str(order)
-            )
-            for order in sorted_orders
-        ]
-
-        paginator = Paginator(paginator_items, page_size)
+        paginator = Paginator(
+            sorted_orders,
+            button_text_getter=lambda o: str(o),
+            button_callback_data_getter=lambda o: str(o.id),
+            page_size=page_size
+        )
         keyboard = paginator.get_keyboard(
             page_number=page_number,
-            main_menu_button=_MAIN_MENU_BUTTON,
         )
-        add_main_menu_button = False
-        page_info = f' (стр. {page_number + 1})' if paginator.is_paginated else ''
+        page_info = f' (стр. {paginator.current_page})' if paginator.is_paginated else ''
         text = f'Новые заказы{page_info}:\n' \
                f'Всего {paginator.items_count}шт\n' \
                f'(Артикул | Время с момента заказа)'
     else:
         keyboard = None
-        add_main_menu_button = True
         text = 'Нет новых заказов'
     answer_to_user(
         update,
         context,
         text,
         keyboard,
-        add_main_menu_button=add_main_menu_button,
         edit_current_message=True
     )
     return 'HANDLE_NEW_ORDERS'
@@ -185,7 +171,7 @@ def show_supply(update: Update, context: CallbackContext, supply_id: str):
     supply = Supply.objects.get(id=supply_id)
     orders = wb_client.get_supply_orders(supply_id)
 
-    if not supply.is_done:
+    if supply.is_open:
         if orders:
             keyboard = [
                 [InlineKeyboardButton('Создать стикеры', callback_data=f'stickers_{supply_id}')],
@@ -228,7 +214,7 @@ def edit_supply(
         update: Update,
         context: CallbackContext,
         supply_id: str,
-        page_number: int = 0,
+        page_number: int = 1,
         page_size: int = _PAGE_SIZE
 ):
     wb_client = WBApiClient()
@@ -249,41 +235,38 @@ def edit_supply(
             context.user_data['order_ids'] = order_ids
             context.user_data['qr_codes'] = qr_codes
             context.user_data['current_supply'] = supply_id
-        paginator_items = []
-        for order in sorted_orders:
+
+        def button_text_getter(order):
             with suppress(StopIteration):
                 qr_code = next(filter(
                     lambda qr: qr.order_id == order.id,
                     qr_codes
                 ))
-                paginator_items.append(
-                    PaginatorItem(
-                        callback_data=str(order.id),
-                        button_text=f'{order.article} | {qr_code.part_a} {qr_code.part_b}'
-                    )
-                )
+                return f'{order.article} | {qr_code.part_a} {qr_code.part_b}'
+            return order.article
 
-        paginator = Paginator(paginator_items, page_size)
+        paginator = Paginator(
+            orders,
+            button_text_getter=button_text_getter,
+            button_callback_data_getter=lambda o: str(o.id),
+            page_size=page_size
+        )
         paginator_keyboard = paginator.get_keyboard(
             page_number=page_number,
             callback_data_prefix=f'{supply_id}_',
             page_callback_data_postfix=f' supply_{supply_id}',
-            main_menu_button=_MAIN_MENU_BUTTON
         )
         keyboard = paginator_keyboard + keyboard
-        add_main_menu_button = False
-        page_info = f' (стр. {page_number + 1})' if paginator.is_paginated else ''
+        page_info = f' (стр. {paginator.current_page})' if paginator.is_paginated else ''
         text = f'Заказы в поставке {supply_id}{page_info}:\n' \
                f'Всего {paginator.items_count}шт'
     else:
         text = 'В поставке нет заказов'
-        add_main_menu_button = True
     answer_to_user(
         update,
         context,
         text,
         keyboard,
-        add_main_menu_button=add_main_menu_button,
         edit_current_message=True
     )
     return 'HANDLE_EDIT_SUPPLY'

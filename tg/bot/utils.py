@@ -1,17 +1,20 @@
-from typing import NamedTuple
+from typing import Callable
 
 import more_itertools
 from telegram import InlineKeyboardButton  # noqa
 
 
-class PaginatorItem(NamedTuple):
-    callback_data: str
-    button_text: str
-
-
 class Paginator:
 
-    def __init__(self, item_list: list[PaginatorItem], page_size: int = 10):
+    def __init__(
+            self,
+            item_list: list,
+            button_text_getter: Callable,
+            button_callback_data_getter: Callable,
+            page_size: int = 10
+    ):
+        self.button_callback_data_getter = button_callback_data_getter
+        self.button_text_getter = button_text_getter
         self.item_list = item_list
         self.items_count = len(item_list)
         self.page_size = page_size
@@ -19,38 +22,43 @@ class Paginator:
         self.total_pages = len(self.pages)
         self.is_paginated = self.total_pages > 1
         self.max_page_number = self.total_pages - 1
+        self.current_page = 1
 
     def get_keyboard(
             self,
-            page_number: int = 0,
+            page_number: int = 1,
             callback_data_prefix: str = '',
-            page_callback_data_postfix: str = '',
-            main_menu_button: InlineKeyboardButton = None
+            page_callback_data_postfix: str = ''
     ) -> list[list[InlineKeyboardButton]]:
-        page_number = min(max(0, page_number), self.total_pages)
-        keyboard = [
+        self.current_page = min(max(1, page_number), self.total_pages)
+        page_keyboard = [
             [InlineKeyboardButton(
-                item.button_text,
-                callback_data=f'{callback_data_prefix}{item.callback_data}'
+                self.button_text_getter(item),
+                callback_data=f'{callback_data_prefix}{self.button_callback_data_getter(item)}'
             )]
-            for item in self.pages[page_number]
+            for item in self.pages[self.current_page-1]
         ]
-
-        keyboard_menu_buttons = [main_menu_button] if main_menu_button else []
-        if self.max_page_number >= page_number > 0:
-            keyboard_menu_buttons.insert(
-                0,
+        if self.is_paginated:
+            pagination_keyboard = [
                 InlineKeyboardButton(
-                    f'< стр. {page_number} из {self.total_pages}',
-                    callback_data=f'page_{page_number - 1}{page_callback_data_postfix}'
-                )
-            )
-        if page_number < self.max_page_number:
-            keyboard_menu_buttons.append(
+                    '1', callback_data=f'page_1{page_callback_data_postfix}'
+                ),
                 InlineKeyboardButton(
-                    f'стр. {page_number + 2} из {self.total_pages} >',
-                    callback_data=f'page_{page_number + 1}{page_callback_data_postfix}'
+                    '<',
+                    callback_data=f'page_{self.current_page - 1}{page_callback_data_postfix}'
+                ),
+                InlineKeyboardButton(
+                    str(self.current_page),
+                    callback_data=f'page_{self.current_page}{page_callback_data_postfix}'
+                ),
+                InlineKeyboardButton(
+                    '>',
+                    callback_data=f'page_{self.current_page + 1}{page_callback_data_postfix}'
+                ),
+                InlineKeyboardButton(
+                    str(self.total_pages),
+                    callback_data=f'page_{self.total_pages}{page_callback_data_postfix}'
                 )
-            )
-        keyboard.append(keyboard_menu_buttons)
-        return keyboard
+            ]
+            page_keyboard.append(pagination_keyboard)
+        return page_keyboard
