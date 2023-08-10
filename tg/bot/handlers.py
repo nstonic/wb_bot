@@ -151,7 +151,7 @@ def show_new_orders(
         )
         page_info = f' (стр. {paginator.current_page})' if paginator.is_paginated else ''
         text = f'Новые заказы{page_info}:\n' \
-               f'Всего {paginator.items_count}шт\n' \
+               f'Всего {len(new_orders)}шт\n' \
                f'(Артикул | Время с момента заказа)'
     else:
         keyboard = None
@@ -259,7 +259,7 @@ def edit_supply(
         keyboard = paginator_keyboard + keyboard
         page_info = f' (стр. {paginator.current_page})' if paginator.is_paginated else ''
         text = f'Заказы в поставке {supply_id}{page_info}:\n' \
-               f'Всего {paginator.items_count}шт'
+               f'Всего {len(orders)}шт'
     else:
         text = 'В поставке нет заказов'
     answer_to_user(
