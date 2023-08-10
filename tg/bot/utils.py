@@ -16,12 +16,10 @@ class Paginator:
         self.button_callback_data_getter = button_callback_data_getter
         self.button_text_getter = button_text_getter
         self.item_list = item_list
-        self.items_count = len(item_list)
         self.page_size = page_size
         self.pages = list(more_itertools.chunked(self.item_list, self.page_size))
         self.total_pages = len(self.pages)
         self.is_paginated = self.total_pages > 1
-        self.max_page_number = self.total_pages - 1
         self.current_page = 1
 
     def get_keyboard(
