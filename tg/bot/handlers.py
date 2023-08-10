@@ -106,12 +106,11 @@ def show_supplies(
         paginator = Paginator(
             supplies,
             button_text_getter=lambda s: str(s),
-            button_callback_data_getter=lambda s: s.id,
+            button_callback_data_getter=lambda s: f'supply_{s.id}',
             page_size=page_size,
         )
         paginator_keyboard = paginator.get_keyboard(
             page_number=page_number,
-            callback_data_prefix='supply_',
             page_callback_data_postfix=f'_{only_active}'
         )
         keyboard = paginator_keyboard + keyboard
@@ -248,12 +247,11 @@ def edit_supply(
         paginator = Paginator(
             orders,
             button_text_getter=button_text_getter,
-            button_callback_data_getter=lambda o: str(o.id),
+            button_callback_data_getter=lambda o: f'{supply_id}_{o.id}',
             page_size=page_size
         )
         paginator_keyboard = paginator.get_keyboard(
             page_number=page_number,
-            callback_data_prefix=f'{supply_id}_',
             page_callback_data_postfix=f' supply_{supply_id}',
         )
         keyboard = paginator_keyboard + keyboard

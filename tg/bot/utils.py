@@ -25,14 +25,13 @@ class Paginator:
     def get_keyboard(
             self,
             page_number: int = 1,
-            callback_data_prefix: str = '',
             page_callback_data_postfix: str = ''
     ) -> list[list[InlineKeyboardButton]]:
         self.current_page = min(max(1, page_number), self.total_pages)
         page_keyboard = [
             [InlineKeyboardButton(
                 self.button_text_getter(item),
-                callback_data=f'{callback_data_prefix}{self.button_callback_data_getter(item)}'
+                callback_data=self.button_callback_data_getter(item)
             )]
             for item in self.pages[self.current_page-1]
         ]
