@@ -23,7 +23,9 @@
             <div class="modal-header">
                 <h1 class="modal-title fs-5"
                     id="staticBackdropLabel">{{ worker.last_name }} {{ worker.first_name }} {{ worker.middle_name }}</h1>
-                <a href="{% url "admin:employers_worker_change" object_id=worker.pk %}?next={{ current_url | urlencode }}">Редактировать</a>
+                {% if user.is_superuser %}
+                    <a href="{% url "admin:employers_worker_change" object_id=worker.pk %}?next={{ current_url | urlencode }}">Редактировать</a>
+                {% endif %}
             </div>
             <div class="modal-body">
                 <ul class="list-group">
