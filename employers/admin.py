@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from django.forms import BaseInlineFormSet
 from django.http import HttpResponseRedirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.timezone import now
@@ -70,8 +71,18 @@ class WorkerAdmin(admin.ModelAdmin):
             return response
 
 
+class WorkersFormSet(BaseInlineFormSet):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.queryset = kwargs['queryset'].filter(
+            is_active=True,
+            department=kwargs['instance']
+        )
+
+
 class WorkersInline(admin.StackedInline):
     model = Worker
+    formset = WorkersFormSet
     extra = 0
     show_change_link = True
     fields = (
