@@ -8,10 +8,10 @@ from employers.models import Worker
 
 class BaseState:
 
-    def exit_state(self, update: Update, context: CallbackContext, **kwargs) -> None:
+    def enter_state(self, update: Update, context: CallbackContext) -> None:
         pass
 
-    def enter_state(self, update: Update, context: CallbackContext) -> None:
+    def exit_state(self, update: Update, context: CallbackContext, **kwargs) -> None:
         pass
 
     def process(self, update: Update, context: CallbackContext) -> Optional[str]:
@@ -51,11 +51,11 @@ class StateMachine(dict[str, BaseState]):
         if self.react_on_commands(update, context):
             return
 
-        locator = context.user_data.get('locator', 'START')
+        locator = context.user_data.get('locator')
         state = self.get(locator)
 
-        if locator == 'START':
-            next_state_locator = self.get(self.start_state_locator).enter_state(update, context)
+        if not state:
+            next_state_locator = self[self.start_state_locator].enter_state(update, context)
         else:
             next_state_locator = state.process(update, context)
 
