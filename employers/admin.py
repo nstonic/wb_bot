@@ -74,10 +74,18 @@ class WorkerAdmin(admin.ModelAdmin):
 class WorkersFormSet(BaseInlineFormSet):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.queryset = kwargs['queryset'].filter(
-            is_active=True,
-            department=kwargs['instance']
-        )
+
+        if isinstance(kwargs['instance'], Position):
+            self.queryset = kwargs['queryset'].filter(
+                is_active=True,
+                position=kwargs['instance']
+            )
+
+        if isinstance(kwargs['instance'], Department):
+            self.queryset = kwargs['queryset'].filter(
+                is_active=True,
+                department=kwargs['instance']
+            )
 
 
 class WorkersInline(admin.StackedInline):
@@ -129,6 +137,9 @@ class PositionAdmin(admin.ModelAdmin):
         'title',
         'department'
     )
+    inlines = [
+        WorkersInline
+    ]
 
 
 @admin.register(Filial)
