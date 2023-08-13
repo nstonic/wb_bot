@@ -1,69 +1,247 @@
+from collections import Counter
+from enum import Enum
 from typing import Optional
 
+from django.conf import settings
 from telegram import Update, InlineKeyboardButton
 from telegram.ext import CallbackContext
 
 from wb_api import WBApiClient
-from .handlers import answer_to_user
-from .state_machine import BaseState, StateMachine
+from .state_machine import StateMachine
+from .state_classes import Locator, TelegramBaseState
+from .utils import Paginator
 
-state_machine = StateMachine(start_state_locator='MAIN_MENU')
+state_machine = StateMachine(start_state_name='MAIN_MENU')
 
 
 @state_machine.register('MAIN_MENU')
-class MainMenu(BaseState):
-    def enter_state(self, update: Update, context: CallbackContext) -> None:
-        text = 'Основное меню'
-        keyboard = [
+class MainMenuState(TelegramBaseState):
+    def get_state_data(self, **params) -> dict:
+        return {'add_main_menu_button': False}
+
+    def get_msg_text(self, state_data: dict) -> str:
+        return 'Основное меню'
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        return [
             [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
             [InlineKeyboardButton('Новые заказы', callback_data='new_orders')],
             [InlineKeyboardButton('Заказы, ожидающие сортировки', callback_data='check_orders')]
         ]
-        answer_to_user(
-            update,
-            context,
-            text,
-            keyboard,
-            add_main_menu_button=False
-        )
 
-    def react_on_inline_keyboard(self, update: Update, context: CallbackContext) -> Optional[str]:
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Locator:
         query = update.callback_query.data
         actions = {
-            'show_supplies': 'SHOW_SUPPLIES',
+            'show_supplies': 'SUPPLIES',
             'new_orders': 'NEW_ORDERS',
             'check_orders': 'CHECK_ORDERS'
         }
-        return actions.get(query)
+        return Locator(state_name=actions.get(query))
 
 
 @state_machine.register('NEW_ORDERS')
-class NewOrders(BaseState):
+class NewOrdersState(TelegramBaseState):
 
-    def enter_state(self, update: Update, context: CallbackContext) -> None:
+    def get_state_data(self, **params) -> dict:
         wb_client = WBApiClient()
         new_orders = wb_client.get_new_orders()
+        return {'new_orders': new_orders}
+
+    def get_msg_text(self, state_data: dict) -> str:
+        new_orders = state_data.get('new_orders')
+
+        if new_orders:
+            text = 'Новые заказы'
+        else:
+            text = 'Нет новых заказов'
+
+        return text
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        new_orders = state_data.get('new_orders')
 
         if new_orders:
             sorted_orders = sorted(new_orders, key=lambda o: o.created_at)
-            keyboard = [
-                [InlineKeyboardButton(str(order), callback_data=order.id)]
-                for order in sorted_orders
-            ]
-            text = 'Новые заказы'
-        else:
-            keyboard = None
-            text = 'Нет новых заказов'
+            paginator = Paginator(
+                sorted_orders,
+                button_text_getter=lambda o: str(o),
+                button_callback_data_getter=lambda o: str(o.id),
+                page_size=settings.BOT_PAGINATOR_PAGE_SIZE
+            )
+            keyboard = paginator.get_keyboard(
+                page_number=state_data.get('page_number', 1),
+            )
+            return keyboard
 
-        answer_to_user(
-            update,
-            context,
-            text,
-            keyboard,
-            edit_current_message=True
-        )
-
-    def react_on_inline_keyboard(self, update: Update, context: CallbackContext) -> Optional[str]:
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
         query = update.callback_query.data
-        context.user_data['order_id'] = int(query)
-        return 'SHOW_NEW_ORDERS_DETAILS'
+        match query:
+            case query if query.startswith('page'):
+                params['page_number'] = int(query.split('#')[-1])
+                return Locator(self.state_name, params)
+            case 'start':
+                return Locator('MAIN_MENU')
+            case query if query.isdigit():
+                order_params = {'order_id': int(query)}
+                return Locator('SHOW_ORDERS_DETAILS', order_params)
+
+
+@state_machine.register('SUPPLIES')
+class SuppliesState(TelegramBaseState):
+    class SupplyFilter(Enum):
+        ALL = lambda s: True  # noqa
+        ACTIVE = lambda s: not s.is_done  # noqa
+        CLOSED = lambda s: s.is_done  # noqa
+
+    def get_state_data(self, **params) -> dict:
+        only_active = params.get('only_active', True)
+
+        wb_client = WBApiClient()
+        supply_filter = self.SupplyFilter.ACTIVE if only_active else self.SupplyFilter.ALL
+
+        params = {
+            'next': 0,
+            'limit': 1000
+        }
+        all_supplies = []
+        while True:  # Находим последнюю страницу с поставками
+            supplies, params['next'] = wb_client.get_supplies(**params)
+            all_supplies.extend(supplies)
+            if len(supplies) == params['limit']:
+                continue
+            else:
+                break
+
+        filtered_supplies = list(filter(  # noqa
+            supply_filter,
+            all_supplies
+        ))
+        filtered_supplies.sort(key=lambda s: s.created_at, reverse=True)
+
+        return {'supplies': filtered_supplies}
+
+    def get_msg_text(self, state_data: dict) -> str:
+        supplies = state_data['supplies']
+
+        if supplies:
+            text = 'Список поставок'
+        else:
+            text = 'У вас еще нет поставок. Создайте первую'
+
+        return text
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        supplies = state_data['supplies']
+        only_active = state_data.get('only_active', True)
+        page_number = state_data.get('page_number', 1)
+
+        keyboard = [[InlineKeyboardButton('Создать новую поставку', callback_data='new_supply')]]
+
+        if only_active:
+            keyboard.insert(
+                0,
+                [InlineKeyboardButton('Показать закрытые поставки', callback_data='closed_supplies')]
+            )
+
+        if supplies:
+            paginator = Paginator(
+                supplies,
+                button_text_getter=lambda s: str(s),
+                button_callback_data_getter=lambda s: f'supply#{s.id}',
+                page_size=settings.BOT_PAGINATOR_PAGE_SIZE,
+            )
+            paginator_keyboard = paginator.get_keyboard(page_number=page_number)
+            keyboard = paginator_keyboard + keyboard
+
+        return keyboard
+
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        query = update.callback_query.data
+        match query:
+            case 'closed_supplies':
+                params['only_active'] = False
+                return Locator(self.state_name, params)
+            case query if query.startswith('page'):
+                params['page_number'] = int(query.split('#')[-1])
+                return Locator(self.state_name, params)
+            case query if query.startswith('supply'):
+                supply_params = {'supply_id': query.split('#')[-1]}
+                return Locator('SUPPLY_ORDERS', supply_params)
+            case 'new_supply':
+                return Locator('NEW_SUPPLY')
+            case 'start':
+                return Locator('MAIN_MENU')
+
+
+@state_machine.register('SUPPLY_ORDERS')
+class SupplyOrdersState(TelegramBaseState):
+
+    def get_state_data(self, **params) -> dict:
+        supply_id = params.get('supply_id')
+
+        if not supply_id:
+            raise ValueError("Supply id is not defined")
+
+        wb_client = WBApiClient()
+        return {
+            'supply': wb_client.get_supply(supply_id),
+            'orders': wb_client.get_supply_orders(supply_id)
+        }
+
+    def get_msg_text(self, state_data: dict) -> str:
+        if orders := state_data.get('orders'):
+            articles = [order.article for order in orders]
+            joined_orders = '\n'.join(
+                [f'{article} - {count}шт.'
+                 for article, count in Counter(sorted(articles)).items()]
+            )
+            supply = state_data.get('supply')
+            text = f'Заказы по поставке {supply.name}:\n\n{joined_orders}'
+        else:
+            text = f'В поставке нет заказов'
+
+        return text
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        supply = state_data.get('supply')
+        orders = state_data.get('orders')
+
+        if supply.is_open:
+            if orders:
+                keyboard = [
+                    [InlineKeyboardButton('Создать стикеры', callback_data='stickers')],
+                    [InlineKeyboardButton('Редактировать заказы', callback_data='edit')],
+                    [InlineKeyboardButton('Отправить в доставку', callback_data='close')]
+                ]
+            else:
+                keyboard = [
+                    [InlineKeyboardButton('Удалить поставку', callback_data='delete')]
+                ]
+        else:
+            keyboard = [
+                [InlineKeyboardButton('Создать стикеры', callback_data='stickers')],
+                [InlineKeyboardButton('QR-код поставки', callback_data='qr')]
+            ]
+
+        keyboard.append(
+            [InlineKeyboardButton('Назад к списку поставок', callback_data='supplies')]
+        )
+        return keyboard
+
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        query = update.callback_query.data
+        match query:
+            case 'stickers':
+                return Locator('SUPPLY_STICKERS', params)
+            case 'edit':
+                return Locator('EDIT_SUPPLY', params)
+            case 'close':
+                return Locator('CLOSE_SUPPLY', params)
+            case 'delete':
+                return Locator('DELETE_SUPPLY', params)
+            case 'qr':
+                return Locator('SUPPLY_QR', params)
+            case 'supplies':
+                return Locator('SUPPLIES')
+            case 'start':
+                return Locator('MAIN_MENU')

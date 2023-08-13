@@ -69,30 +69,22 @@ class WBApiClient:
             for product_card in response.json()['data']:
                 yield product_card
 
-    def get_supplies(self, quantity: int = 50) -> list[Supply]:
+    def get_supplies(self, limit: int = 1000, next: int = 0) -> tuple[list[Supply], int]:
         params = {
-            'limit': 1000,
-            'next': 0
+            'limit': limit,
+            'next': next
         }
-        all_supplies = []
-        while True:  # Находим последнюю страницу с поставками
-            response = self.make_request(
-                'get',
-                'https://suppliers-api.wildberries.ru/api/v3/supplies',
-                params=params
-            )
-            supplies = response.json()['supplies']
-            all_supplies.extend(supplies)
-            if len(supplies) == params['limit']:
-                params['next'] = response.json()['next']
-                continue
-            else:
-                break
-        all_supplies.sort(key=lambda s: s['createdAt'], reverse=True)
-        return [
+        response = self.make_request(
+            'get',
+            'https://suppliers-api.wildberries.ru/api/v3/supplies',
+            params=params
+        )
+        supplies = [
             Supply.model_validate(supply)
-            for supply in all_supplies[:quantity]
+            for supply in response.json()['supplies']
         ]
+        return supplies, next
+
 
     def get_qr_codes_for_orders(self, order_ids: list[int]) -> list[OrderQRCode]:
         stickers = []
@@ -111,12 +103,14 @@ class WBApiClient:
             stickers.extend([OrderQRCode.model_validate(sticker) for sticker in response.json()['stickers']])
         return stickers
 
+
     def send_supply_to_deliver(self, supply_id: str) -> bool:
         response = self.make_request(
             'patch',
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/deliver'
         )
         return response.ok
+
 
     def get_supply_qr_code(self, supply_id: str) -> SupplyQRCode:
         response = self.make_request(
@@ -130,6 +124,7 @@ class WBApiClient:
         )
         return SupplyQRCode.model_validate(response.json())
 
+
     def get_new_orders(self) -> list[Order]:
         response = self.make_request(
             'get',
@@ -139,6 +134,7 @@ class WBApiClient:
             Order.model_validate(order)
             for order in response.json()['orders']
         ]
+
 
     def get_orders(
             self,
@@ -167,12 +163,14 @@ class WBApiClient:
         ]
         return orders, response_content['next']
 
+
     def add_order_to_supply(self, supply_id: str, order_id: int | str) -> int:
         response = self.make_request(
             'patch',
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/orders/{order_id}'
         )
         return response.ok
+
 
     def create_new_supply(self, supply_name: str) -> str:
         response = self.make_request(
@@ -182,6 +180,7 @@ class WBApiClient:
         )
         return response.json().get('id')
 
+
     def delete_supply_by_id(self, supply_id: str) -> int:
         response = self.make_request(
             'delete',
@@ -189,12 +188,13 @@ class WBApiClient:
         )
         return response.ok
 
-    def check_orders_status(self, order_ids: list[int]) -> Generator[OrderStatus, None, None]:
-        for chunk in more_itertools.chunked(order_ids, 1000):
-            response = self.make_request(
-                'post',
-                'https://suppliers-api.wildberries.ru/api/v3/orders/status',
-                json={"orders": chunk}
-            )
-            for order in response.json()['orders']:
-                yield OrderStatus.model_validate(order)
+
+def check_orders_status(self, order_ids: list[int]) -> Generator[OrderStatus, None, None]:
+    for chunk in more_itertools.chunked(order_ids, 1000):
+        response = self.make_request(
+            'post',
+            'https://suppliers-api.wildberries.ru/api/v3/orders/status',
+            json={"orders": chunk}
+        )
+        for order in response.json()['orders']:
+            yield OrderStatus.model_validate(order)
