@@ -189,12 +189,12 @@ class WBApiClient:
         return response.ok
 
 
-def check_orders_status(self, order_ids: list[int]) -> Generator[OrderStatus, None, None]:
-    for chunk in more_itertools.chunked(order_ids, 1000):
-        response = self.make_request(
-            'post',
-            'https://suppliers-api.wildberries.ru/api/v3/orders/status',
-            json={"orders": chunk}
-        )
-        for order in response.json()['orders']:
-            yield OrderStatus.model_validate(order)
+    def check_orders_status(self, order_ids: list[int]) -> Generator[OrderStatus, None, None]:
+        for chunk in more_itertools.chunked(order_ids, 1000):
+            response = self.make_request(
+                'post',
+                'https://suppliers-api.wildberries.ru/api/v3/orders/status',
+                json={"orders": chunk}
+            )
+            for order in response.json()['orders']:
+                yield OrderStatus.model_validate(order)

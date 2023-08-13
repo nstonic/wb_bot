@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Telegra
 from telegram.ext import CallbackContext  # noqa
 
 from .stickers import get_supply_sticker, get_orders_stickers
-from .utils import Paginator
+from .paginator import Paginator
 from ..models import Supply
 from wb_api import WBApiClient
 

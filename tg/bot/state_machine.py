@@ -60,7 +60,11 @@ class StateMachine(dict[str, BaseState]):
     ):
         if current_state:
             current_state.exit_state(update, context)
+            current_state_name = current_state.state_name
+        else:
+            current_state_name = 'START'
 
         next_state = self.get(next_state_locator.state_name)
+        print(current_state_name, '>>>', next_state.state_name)
         next_state.enter_state(update=update, context=context, **next_state_locator.params)
         context.user_data['locator'] = next_state_locator

@@ -1,5 +1,4 @@
 from collections import Counter
-from enum import Enum
 from typing import Optional
 
 from django.conf import settings
@@ -7,9 +6,10 @@ from telegram import Update, InlineKeyboardButton
 from telegram.ext import CallbackContext
 
 from wb_api import WBApiClient
+from .helpers import filter_supplies, SupplyFilter
 from .state_machine import StateMachine
 from .state_classes import Locator, TelegramBaseState
-from .utils import Paginator
+from .paginator import Paginator
 
 state_machine = StateMachine(start_state_name='MAIN_MENU')
 
@@ -51,7 +51,7 @@ class NewOrdersState(TelegramBaseState):
         new_orders = state_data.get('new_orders')
 
         if new_orders:
-            text = 'Новые заказы'
+            text = f'Новые заказы - {len(new_orders)} шт.'
         else:
             text = 'Нет новых заказов'
 
@@ -88,37 +88,14 @@ class NewOrdersState(TelegramBaseState):
 
 @state_machine.register('SUPPLIES')
 class SuppliesState(TelegramBaseState):
-    class SupplyFilter(Enum):
-        ALL = lambda s: True  # noqa
-        ACTIVE = lambda s: not s.is_done  # noqa
-        CLOSED = lambda s: s.is_done  # noqa
 
     def get_state_data(self, **params) -> dict:
         only_active = params.get('only_active', True)
 
-        wb_client = WBApiClient()
-        supply_filter = self.SupplyFilter.ACTIVE if only_active else self.SupplyFilter.ALL
+        supplies = filter_supplies(SupplyFilter.ACTIVE if only_active else SupplyFilter.ALL)
+        supplies.sort(key=lambda s: s.created_at, reverse=True)
 
-        params = {
-            'next': 0,
-            'limit': 1000
-        }
-        all_supplies = []
-        while True:  # Находим последнюю страницу с поставками
-            supplies, params['next'] = wb_client.get_supplies(**params)
-            all_supplies.extend(supplies)
-            if len(supplies) == params['limit']:
-                continue
-            else:
-                break
-
-        filtered_supplies = list(filter(  # noqa
-            supply_filter,
-            all_supplies
-        ))
-        filtered_supplies.sort(key=lambda s: s.created_at, reverse=True)
-
-        return {'supplies': filtered_supplies}
+        return {'supplies': supplies}
 
     def get_msg_text(self, state_data: dict) -> str:
         supplies = state_data['supplies']
@@ -243,5 +220,52 @@ class SupplyOrdersState(TelegramBaseState):
                 return Locator('SUPPLY_QR', params)
             case 'supplies':
                 return Locator('SUPPLIES')
+            case 'start':
+                return Locator('MAIN_MENU')
+
+
+@state_machine.register('CHECK_ORDERS')
+class CheckOrdersState(TelegramBaseState):
+    def get_state_data(self, **params) -> dict:
+        supplies = filter_supplies(SupplyFilter.CLOSED)
+
+        wb_client = WBApiClient()
+        orders = []
+        for supply in supplies[:10]:
+            orders.extend(
+                wb_client.get_supply_orders(supply.id)
+            )
+
+        order_statuses = wb_client.check_orders_status(
+            [order.id for order in orders]
+        )
+
+        waiting_order_ids = [
+            status.id
+            for status in order_statuses
+            if status.wb_status == 'waiting'
+        ]
+
+        waiting_orders = list(filter(
+            lambda o: o.id in waiting_order_ids,
+            orders
+        ))
+
+        return {'waiting_orders': waiting_orders}
+
+    def get_msg_text(self, state_data: dict) -> str:
+        if state_data['waiting_orders']:
+            waiting_orders_articles = [
+                f'{order.supply_id} | {order}'
+                for order in state_data['waiting_orders']
+            ]
+            text = '\n'.join(waiting_orders_articles)
+        else:
+            text = 'Нет заказов, ожидающих сортировки'
+        return text
+
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        query = update.callback_query.data
+        match query:
             case 'start':
                 return Locator('MAIN_MENU')
