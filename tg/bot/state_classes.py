@@ -70,7 +70,7 @@ class TelegramBaseState(BaseState):
                 if 'Message is not modified' in str(ex):
                     with suppress(TelegramError):
                         context.bot.answer_callback_query(update.callback_query.id, '')
-                return
+                    return
             else:
                 return
 
