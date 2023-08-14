@@ -29,36 +29,59 @@ class TelegramBaseState(BaseState):
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
         state_data = self.get_state_data(**params)
         state_data.update(params)
-        keyboard = self.get_keyboard(state_data) or []
-        text = self.get_msg_text(state_data)
+        self.answer_to_user(
+            update,
+            context,
+            text=self.get_msg_text(state_data),
+            keyboard=self.get_keyboard(state_data),
+            **state_data
+        )
+        return Locator(self.state_name, params)
 
-        if state_data.get('add_main_menu_button', True):
+    def answer_to_user(
+            self,
+            update: Update,
+            context: CallbackContext,
+            text: str,
+            keyboard: list[list[InlineKeyboardButton]] = None,
+            **kwargs
+    ):
+
+        add_main_menu_button = kwargs.get('add_main_menu_button', True)
+        parse_mode = kwargs.get('parse_mode', 'HTML')
+        edit_current_message = kwargs.get('edit_current_message', True)
+
+        if not keyboard:
+            keyboard = []
+
+        if add_main_menu_button:
             keyboard.append([InlineKeyboardButton('Основное меню', callback_data='start')])
 
-        parse_mode = state_data.get('parse_mode', 'HTML')
-
-        try:
-            context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=update.effective_message.message_id,
-                text=text,
-                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
-                parse_mode=parse_mode
-            )
-        except TelegramError:
-            with suppress(TelegramError):
-                context.bot.delete_message(
+        if edit_current_message:
+            try:
+                context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
-                    message_id=update.effective_message.message_id
+                    message_id=update.effective_message.message_id,
+                    text=text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode=parse_mode
                 )
-            context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=text,
-                reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None,
-                parse_mode=parse_mode
-            )
+            except TelegramError:
+                pass
+            else:
+                return
 
-        return Locator(self.state_name, params)
+        with suppress(TelegramError):
+            context.bot.delete_message(
+                chat_id=update.effective_chat.id,
+                message_id=update.effective_message.message_id
+            )
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode=parse_mode
+        )
 
     def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
         pass

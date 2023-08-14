@@ -66,5 +66,6 @@ class StateMachine(dict[str, BaseState]):
 
         next_state = self.get(next_state_locator.state_name)
         print(current_state_name, '>>>', next_state.state_name)
-        next_state.enter_state(update=update, context=context, **next_state_locator.params)
+        if locator := next_state.enter_state(update=update, context=context, **next_state_locator.params):
+            next_state_locator = locator
         context.user_data['locator'] = next_state_locator
