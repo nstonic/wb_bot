@@ -1,5 +1,9 @@
 from enum import Enum
 
+from telegram import Update
+from telegram.ext import CallbackContext
+
+from tg.bot.stickers import get_supply_sticker
 from wb_api import WBApiClient
 
 
@@ -30,3 +34,13 @@ def filter_supplies(supply_filter: SupplyFilter):
         all_supplies
     ))
     return filtered_supplies
+
+
+def send_supply_qr_code(update: Update, context: CallbackContext, supply_id: str):
+    wb_client = WBApiClient()
+    supply_qr_code = wb_client.get_supply_qr_code(supply_id)
+    supply_sticker = get_supply_sticker(supply_qr_code)
+    context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=supply_sticker
+    )

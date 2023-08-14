@@ -6,10 +6,11 @@ from telegram import Update, InlineKeyboardButton
 from telegram.ext import CallbackContext
 
 from wb_api import WBApiClient
-from .helpers import filter_supplies, SupplyFilter
+from .helpers import filter_supplies, SupplyFilter, send_supply_qr_code
 from .state_machine import StateMachine
 from .state_classes import Locator, TelegramBaseState
 from .paginator import Paginator
+from .stickers import get_orders_stickers
 
 state_machine = StateMachine(start_state_name='MAIN_MENU')
 
@@ -183,7 +184,7 @@ class SupplyOrdersState(TelegramBaseState):
         supply = state_data.get('supply')
         orders = state_data.get('orders')
 
-        if supply.is_open:
+        if not supply.is_done:
             if orders:
                 keyboard = [
                     [InlineKeyboardButton('Создать стикеры', callback_data='stickers')],
@@ -205,19 +206,60 @@ class SupplyOrdersState(TelegramBaseState):
         )
         return keyboard
 
+    def send_stickers(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        context.bot.answer_callback_query(
+            update.callback_query.id,
+            'Запущена подготовка стикеров. Подождите'
+        )
+        supply_id = params['supply_id']
+        wb_client = WBApiClient()
+        orders = wb_client.get_supply_orders(supply_id)
+        order_qr_codes = wb_client.get_qr_codes_for_orders(
+            [order.id for order in orders]
+        )
+        articles = set([order.article for order in orders])
+        products = [wb_client.get_product(article) for article in articles]
+        with get_orders_stickers(
+                orders,
+                products,
+                order_qr_codes,
+                supply_id
+        ) as zip_file:
+            context.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document=zip_file.getvalue(),
+                filename=zip_file.name
+            )
+        return
+
+    def close_supply(self, update: Update, context: CallbackContext, supply_id: str):
+        wb_client = WBApiClient()
+        if not wb_client.send_supply_to_deliver(supply_id):
+            context.bot.answer_callback_query(
+                update.callback_query.id,
+                'Произошла ошибка. Попробуйте позже'
+            )
+        else:
+            context.bot.answer_callback_query(
+                update.callback_query.id,
+                'Отправлено в доставку'
+            )
+            send_supply_qr_code(update, context, supply_id)
+
     def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
         query = update.callback_query.data
         match query:
             case 'stickers':
-                return Locator('SUPPLY_STICKERS', params)
+                self.send_stickers(update, context, **params)
             case 'edit':
                 return Locator('EDIT_SUPPLY', params)
             case 'close':
-                return Locator('CLOSE_SUPPLY', params)
+                self.close_supply(update, context, params['supply_id'])
+                return Locator(self.state_name, params)
             case 'delete':
                 return Locator('DELETE_SUPPLY', params)
             case 'qr':
-                return Locator('SUPPLY_QR', params)
+                send_supply_qr_code(update, context, params['supply_id'])
             case 'supplies':
                 return Locator('SUPPLIES')
             case 'start':
