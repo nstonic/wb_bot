@@ -33,12 +33,13 @@ class MainMenuState(TelegramBaseState):
 
     def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Locator:
         query = update.callback_query.data
-        state_names = {
-            'show_supplies': 'SUPPLIES',
-            'new_orders': 'NEW_ORDERS',
-            'check_orders': 'CHECK_WAITING_ORDERS'
-        }
-        return Locator(state_name=state_names.get(query))
+        match query:
+            case 'show_supplies':
+                return Locator('SUPPLIES')
+            case 'new_orders':
+                return Locator('NEW_ORDERS')
+            case 'check_orders':
+                return Locator('CHECK_WAITING_ORDERS')
 
 
 @state_machine.register('NEW_ORDERS')
@@ -85,7 +86,7 @@ class NewOrdersState(TelegramBaseState):
                 return Locator('MAIN_MENU')
             case query if query.isdigit():
                 order_params = {'order_id': int(query)}
-                return Locator('ORDER_DETAILS', order_params)  # TODO ORDER_DETAILS STATE
+                return Locator('ORDER_DETAILS', order_params)
 
 
 @state_machine.register('SUPPLIES')
@@ -147,7 +148,7 @@ class SuppliesState(TelegramBaseState):
                 supply_params = {'supply_id': query.split('#')[-1]}
                 return Locator('SUPPLY', supply_params)
             case 'new_supply':
-                return Locator('NEW_SUPPLY')  # TODO NEW_SUPPLY STATE
+                return Locator('NEW_SUPPLY')
             case 'start':
                 return Locator('MAIN_MENU')
 
@@ -281,6 +282,29 @@ class SupplyState(TelegramBaseState):
                 return Locator('MAIN_MENU')
 
 
+@state_machine.register('NEW_SUPPLY')
+class NewSupplyState(TelegramBaseState):
+    def get_msg_text(self, state_data: dict) -> str:
+        return 'Пришлите название для новой поставки'
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        return [[InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')]]
+
+    def react_on_message(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        wb_client = WBApiClient()
+        new_supply_name = update.message.text
+        supply_id = wb_client.create_new_supply(new_supply_name)
+        return Locator('SUPPLY', {'supply_id': supply_id})
+
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        query = update.callback_query.data
+        match query:
+            case 'cancel':
+                return Locator('SUPPLIES')
+            case 'start':
+                return Locator('MAIN_MENU')
+
+
 @state_machine.register('EDIT_SUPPLY')
 class EditSupplyState(TelegramBaseState):
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
@@ -339,7 +363,11 @@ class EditSupplyState(TelegramBaseState):
         query = update.callback_query.data
         match query:
             case query if query.isdigit():
-                return Locator('ORDER_DETAILS', params)  # TODO ORDER_DETAILS STATE
+                order_params = {
+                    'supply_id': params['supply_id'],
+                    'order_id': int(query)
+                }
+                return Locator('ORDER_DETAILS', order_params)
             case query if query.startswith('page'):
                 params['page_number'] = int(query.split('#')[-1])
                 return Locator(self.state_name, params)
@@ -393,5 +421,69 @@ class CheckWaitingOrdersState(TelegramBaseState):
     def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
         query = update.callback_query.data
         match query:
+            case 'start':
+                return Locator('MAIN_MENU')
+
+
+@state_machine.register('ORDER_DETAILS')
+class OrderDetailsState(TelegramBaseState):
+    def get_state_data(self, **params) -> dict | None:
+        order_id = params['order_id']
+        supply_id = params.get('supply_id')
+        wb_client = WBApiClient()
+
+        if supply_id:
+            for order in wb_client.get_supply_orders(supply_id):
+                if order.id == order_id:
+                    return {
+                        'supply_id': supply_id,
+                        'order': order,
+                        'order_qr_code': wb_client.get_qr_codes_for_orders([order.id])[-1]
+                    }
+        else:
+            for order in wb_client.get_new_orders():
+                if order.id == order_id:
+                    return {'order': order}
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        keyboard = [
+            [InlineKeyboardButton('Перенести в поставку', callback_data='add_to_supply')]
+        ]
+
+        if state_data.get('supply_id'):
+            keyboard.append([InlineKeyboardButton('Вернуться к поставке', callback_data='supply')])
+
+        return keyboard
+
+    def get_msg_text(self, state_data: dict) -> str:
+        order = state_data['order']
+
+        if supply_id := state_data.get('supply_id'):
+            order_qr_code = state_data['order_qr_code']
+            text = f'Номер заказа: <b>{order.id}</b>\n' \
+                   f'Стикер: <b>{order_qr_code.part_a} {order_qr_code.part_b}</b>\n' \
+                   f'Артикул: <b>{order.article}</b>\n' \
+                   f'Поставка: <b>{supply_id}</b>\n' \
+                   f'Время с момента заказа: <b>{order.created_ago}</b>\n' \
+                   f'Цена: <b>{order.converted_price / 100} ₽</b>'
+        else:
+            text = f'Номер заказа: <b>{order.id}</b>\n' \
+                   f'Артикул: <b>{order.article}</b>\n' \
+                   f'Время с момента заказа: <b>{order.created_ago}</b>\n' \
+                   f'Цена: <b>{order.converted_price / 100} ₽</b>'
+
+        return text
+
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        query = update.callback_query.data
+        match query:
+            case 'supply':
+                return Locator('SUPPLY', {'supply_id': params['supply_id']})
+            case 'add_to_supply':
+                params = {
+                    'supply_id': params['supply_id'],
+                    'order_id': params['order'].id
+                }
+                return Locator('ADD_ORDER_TO_SUPPLY', params)  # TODO ADD_ORDER_TO_SUPPLY STATE
             case 'start':
                 return Locator('MAIN_MENU')

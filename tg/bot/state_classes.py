@@ -27,7 +27,7 @@ class BaseState:
 
 class TelegramBaseState(BaseState):
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
-        state_data = self.get_state_data(**params)
+        state_data = self.get_state_data(**params) or dict()
         state_data.update(params)
         self.answer_to_user(
             update,
@@ -89,7 +89,7 @@ class TelegramBaseState(BaseState):
     def get_msg_text(self, state_data: dict) -> str:
         pass
 
-    def get_state_data(self, **params) -> dict:
+    def get_state_data(self, **params) -> dict | None:
         return params
 
     def process(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:

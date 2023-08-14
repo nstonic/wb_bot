@@ -85,7 +85,6 @@ class WBApiClient:
         ]
         return supplies, next
 
-
     def get_qr_codes_for_orders(self, order_ids: list[int]) -> list[OrderQRCode]:
         stickers = []
         params = {
@@ -103,14 +102,12 @@ class WBApiClient:
             stickers.extend([OrderQRCode.model_validate(sticker) for sticker in response.json()['stickers']])
         return stickers
 
-
     def send_supply_to_deliver(self, supply_id: str) -> bool:
         response = self.make_request(
             'patch',
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/deliver'
         )
         return response.ok
-
 
     def get_supply_qr_code(self, supply_id: str) -> SupplyQRCode:
         response = self.make_request(
@@ -124,7 +121,6 @@ class WBApiClient:
         )
         return SupplyQRCode.model_validate(response.json())
 
-
     def get_new_orders(self) -> list[Order]:
         response = self.make_request(
             'get',
@@ -134,7 +130,6 @@ class WBApiClient:
             Order.model_validate(order)
             for order in response.json()['orders']
         ]
-
 
     def get_orders(
             self,
@@ -163,14 +158,12 @@ class WBApiClient:
         ]
         return orders, response_content['next']
 
-
     def add_order_to_supply(self, supply_id: str, order_id: int | str) -> int:
         response = self.make_request(
             'patch',
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}/orders/{order_id}'
         )
         return response.ok
-
 
     def create_new_supply(self, supply_name: str) -> str:
         response = self.make_request(
@@ -180,14 +173,12 @@ class WBApiClient:
         )
         return response.json().get('id')
 
-
     def delete_supply_by_id(self, supply_id: str) -> int:
         response = self.make_request(
             'delete',
             f'https://suppliers-api.wildberries.ru/api/v3/supplies/{supply_id}'
         )
         return response.ok
-
 
     def check_orders_status(self, order_ids: list[int]) -> Generator[OrderStatus, None, None]:
         for chunk in more_itertools.chunked(order_ids, 1000):
