@@ -293,8 +293,8 @@ class NewSupplyState(TelegramBaseState):
     def react_on_message(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
         wb_client = WBApiClient()
         new_supply_name = update.message.text
-        supply_id = wb_client.create_new_supply(new_supply_name)
-        return Locator('SUPPLY', {'supply_id': supply_id})
+        wb_client.create_new_supply(new_supply_name)
+        return Locator('SUPPLIES')
 
     def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
         query = update.callback_query.data
