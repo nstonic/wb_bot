@@ -175,7 +175,7 @@ class SupplyState(TelegramBaseState):
                  for article, count in Counter(sorted(articles)).items()]
             )
             supply = state_data.get('supply')
-            text = f'Заказы по поставке {supply.name}:\n\n{joined_orders}'
+            text = f'Продукция в поставке {supply.name}:\n\n{joined_orders}'
         else:
             text = f'В поставке нет заказов'
 
@@ -351,9 +351,9 @@ class EditSupplyState(TelegramBaseState):
 
 
 @state_machine.register('CHECK_WAITING_ORDERS')
-class CheckOrdersState(TelegramBaseState):
+class CheckWaitingOrdersState(TelegramBaseState):
     def get_state_data(self, **params) -> dict:
-        supplies = filter_supplies(SupplyFilter.CLOSED)
+        supplies = filter_supplies(SupplyFilter.CLOSED)[::-1]
 
         wb_client = WBApiClient()
         orders = []
