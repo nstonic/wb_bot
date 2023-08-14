@@ -480,10 +480,6 @@ class OrderDetailsState(TelegramBaseState):
             case 'supply':
                 return Locator('SUPPLY', {'supply_id': params['supply_id']})
             case 'add_to_supply':
-                params = {
-                    'supply_id': params['supply_id'],
-                    'order_id': params['order'].id
-                }
-                return Locator('ADD_ORDER_TO_SUPPLY', params)  # TODO ADD_ORDER_TO_SUPPLY STATE
+                return Locator('ADD_ORDER_TO_SUPPLY', {'order_id': params['order'].id})  # TODO ADD_ORDER_TO_SUPPLY
             case 'start':
                 return Locator('MAIN_MENU')
