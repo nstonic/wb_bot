@@ -153,10 +153,7 @@ class SuppliesState(TelegramBaseState):
 class SupplyState(TelegramBaseState):
 
     def get_state_data(self, **params) -> dict:
-        supply_id = params.get('supply_id')
-
-        if not supply_id:
-            raise ValueError("Supply id is not defined")
+        supply_id = params['supply_id']
 
         wb_client = WBApiClient()
         return {
@@ -426,10 +423,7 @@ class CheckWaitingOrdersState(TelegramBaseState):
         return text
 
     def react_on_inline_keyboard(self) -> Locator | None:
-        query = self.update.callback_query.data
-        match query:
-            case 'start':
-                return Locator('MAIN_MENU')
+        return Locator('MAIN_MENU')
 
 
 @state_machine.register('ORDER_DETAILS')
