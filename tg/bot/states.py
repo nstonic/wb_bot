@@ -359,6 +359,9 @@ class EditSupplyState(TelegramBaseState):
         else:
             self.msg_text = 'В поставке нет заказов'
 
+        self.state_data = params | self.get_state_data(**params)
+        self.update = update
+        self.context = context
         self.answer_to_user(edit_current_message=True)
 
         return Locator(self.state_name, params)

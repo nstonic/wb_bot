@@ -36,6 +36,8 @@ class TelegramBaseState(BaseState):
         super().__init__(state_name)
 
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
+        self.update = update
+        self.context = context
         self.state_data = params | self.get_state_data(**params)
         self.msg_text = self.get_msg_text()
         self.keyboard = self.get_keyboard()
@@ -54,7 +56,7 @@ class TelegramBaseState(BaseState):
     def process(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         self.state_data = params
         self.update = update
-        self.context = CallbackContext
+        self.context = context
         if update.message:
             return self.react_on_message()
         elif update.callback_query:
@@ -72,6 +74,10 @@ class TelegramBaseState(BaseState):
             parse_mode: str = 'HTML',
             edit_current_message: bool = True
     ):
+        add_main_menu_button = self.state_data.get('add_main_menu_button', add_main_menu_button)
+        parse_mode = self.state_data.get('parse_mode', parse_mode)
+        edit_current_message = self.state_data.get('edit_current_message', edit_current_message)
+
         text = self.msg_text or ' '
         keyboard = self.keyboard or []
 
