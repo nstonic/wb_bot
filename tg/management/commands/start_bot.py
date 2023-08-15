@@ -8,7 +8,6 @@ from telegram.ext import (
     Filters
 )
 
-from tg.bot import handle_users_reply
 from tg.bot.states import state_machine
 
 
