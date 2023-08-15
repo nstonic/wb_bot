@@ -169,16 +169,17 @@ class SupplyState(TelegramBaseState):
         }
 
     def get_msg_text(self, state_data: dict) -> str:
+        supply = state_data.get('supply')
+
         if orders := state_data.get('orders'):
             articles = [order.article for order in orders]
             joined_orders = '\n'.join(
                 [f'{article} - {count}шт.'
                  for article, count in Counter(sorted(articles)).items()]
             )
-            supply = state_data.get('supply')
             text = f'Продукция в поставке {supply.name}:\n\n{joined_orders}'
         else:
-            text = f'В поставке нет заказов'
+            text = f'В поставке {supply.name} нет заказов'
 
         return text
 
@@ -480,6 +481,54 @@ class OrderDetailsState(TelegramBaseState):
             case 'supply':
                 return Locator('SUPPLY', {'supply_id': params['supply_id']})
             case 'add_to_supply':
-                return Locator('ADD_ORDER_TO_SUPPLY', {'order_id': params['order'].id})  # TODO ADD_ORDER_TO_SUPPLY
+                return Locator('ADD_ORDER_TO_SUPPLY', {'order_id': params['order_id']})
             case 'start':
                 return Locator('MAIN_MENU')
+
+
+@state_machine.register('ADD_ORDER_TO_SUPPLY')
+class AddOrderToSupplyState(TelegramBaseState):
+    def get_state_data(self, **params) -> dict | None:
+        active_supplies = filter_supplies(SupplyFilter.ACTIVE)
+        return {'supplies': active_supplies}
+
+    def get_msg_text(self, state_data: dict) -> str:
+        return 'Выберите поставку из существующих либо сообщением пришлите название новой поставки'
+
+    def get_keyboard(self, state_data: dict) -> list[list[InlineKeyboardButton]]:
+        keyboard = [
+            [InlineKeyboardButton(str(supply), callback_data=supply.id)]
+            for supply in state_data['supplies']
+        ]
+        return keyboard
+
+    def react_on_message(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        wb_client = WBApiClient()
+        new_supply_name = update.message.text
+        supply_id = wb_client.create_new_supply(new_supply_name)
+        self.add_to_supply(update, context, supply_id, params)
+        return Locator('SUPPLY', {'supply_id': supply_id})
+
+    def add_to_supply(self, update: Update, context: CallbackContext, supply_id: str, params: dict):
+        wb_client = WBApiClient()
+        if wb_client.add_order_to_supply(supply_id, params['order_id']):
+            if update.callback_query:
+                context.bot.answer_callback_query(
+                    update.callback_query.id,
+                    f'Заказ {params["order_id"]} добавлен к поставке {supply_id}'
+                )
+        else:
+            if update.callback_query:
+                context.bot.answer_callback_query(
+                    update.callback_query.id,
+                    'Произошла ошибка. Попробуйте позже'
+                )
+
+    def react_on_inline_keyboard(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+        query = update.callback_query.data
+        match query:
+            case 'start':
+                return Locator('MAIN_MENU')
+            case _:
+                self.add_to_supply(update, context, query, params)
+                return Locator('SUPPLY', {'supply_id': query})
