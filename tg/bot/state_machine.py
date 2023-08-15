@@ -1,7 +1,7 @@
 from typing import Type, cast
 
-from telegram import Update
-from telegram.ext import CallbackContext
+from telegram import Update  # noqa
+from telegram.ext import CallbackContext  # noqa
 
 from employers.models import Worker
 from tg.bot.state_classes import Locator, BaseState
@@ -9,7 +9,7 @@ from tg.bot.state_classes import Locator, BaseState
 
 class StateMachine(dict[str, BaseState]):
 
-    def __init__(self, start_state_name: str):
+    def __init__(self, start_state_name: str):  # noqa
         self.start_state_name = Locator(start_state_name)
 
     def register(self, state_name: str):

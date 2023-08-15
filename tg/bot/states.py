@@ -1,10 +1,9 @@
 from collections import Counter
 from contextlib import suppress
-from typing import Optional
 
 from django.conf import settings
-from telegram import Update, InlineKeyboardButton
-from telegram.ext import CallbackContext
+from telegram import Update, InlineKeyboardButton  # noqa
+from telegram.ext import CallbackContext  # noqa
 
 from wb_api import WBApiClient
 from .helpers import filter_supplies, SupplyFilter
@@ -14,22 +13,17 @@ from .paginator import Paginator
 from .stickers import get_orders_stickers, get_supply_sticker
 
 state_machine = StateMachine(start_state_name='MAIN_MENU')
+_MAIN_MENU_INLINE_BUTTON = [InlineKeyboardButton('Основное меню', callback_data='start')]
 
 
 @state_machine.register('MAIN_MENU')
 class MainMenuState(TelegramBaseState):
-    def get_state_data(self, **params) -> dict:
-        return {'add_main_menu_button': False}
-
-    def get_msg_text(self) -> str:
-        return 'Основное меню'
-
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
-        return [
-            [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
-            [InlineKeyboardButton('Новые заказы', callback_data='new_orders')],
-            [InlineKeyboardButton('Заказы, ожидающие сортировки', callback_data='check_orders')]
-        ]
+    msg_text = 'Основное меню'
+    inline_keyboard = [
+        [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
+        [InlineKeyboardButton('Новые заказы', callback_data='new_orders')],
+        [InlineKeyboardButton('Заказы, ожидающие сортировки', callback_data='check_orders')]
+    ]
 
     def react_on_inline_keyboard(self) -> Locator:
         query = self.update.callback_query.data
@@ -60,7 +54,7 @@ class NewOrdersState(TelegramBaseState):
 
         return text
 
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
         new_orders = self.state_data.get('new_orders')
 
         if new_orders:
@@ -74,9 +68,10 @@ class NewOrdersState(TelegramBaseState):
             keyboard = paginator.get_keyboard(
                 page_number=self.state_data.get('page_number', 1),
             )
+            keyboard.append(_MAIN_MENU_INLINE_BUTTON)
             return keyboard
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case query if query.startswith('page'):
@@ -110,7 +105,7 @@ class SuppliesState(TelegramBaseState):
 
         return text
 
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
         supplies = self.state_data['supplies']
         only_active = self.state_data.get('only_active', True)
         page_number = self.state_data.get('page_number', 1)
@@ -133,9 +128,10 @@ class SuppliesState(TelegramBaseState):
             paginator_keyboard = paginator.get_keyboard(page_number=page_number)
             keyboard = paginator_keyboard + keyboard
 
+        keyboard.append(_MAIN_MENU_INLINE_BUTTON)
         return keyboard
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case 'closed_supplies':
@@ -183,7 +179,7 @@ class SupplyState(TelegramBaseState):
 
         return text
 
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
         supply = self.state_data.get('supply')
         orders = self.state_data.get('orders')
 
@@ -204,12 +200,13 @@ class SupplyState(TelegramBaseState):
                 [InlineKeyboardButton('QR-код поставки', callback_data='qr')]
             ]
 
-        keyboard.append(
-            [InlineKeyboardButton('Назад к списку поставок', callback_data='supplies')]
-        )
+        keyboard.extend([
+            [InlineKeyboardButton('Назад к списку поставок', callback_data='supplies')],
+            _MAIN_MENU_INLINE_BUTTON
+        ])
         return keyboard
 
-    def send_stickers(self) -> Optional[Locator]:
+    def send_stickers(self) -> Locator | None:
         self.context.bot.answer_callback_query(
             self.update.callback_query.id,
             'Запущена подготовка стикеров. Подождите'
@@ -272,7 +269,7 @@ class SupplyState(TelegramBaseState):
             photo=supply_sticker
         )
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case 'stickers':
@@ -294,19 +291,19 @@ class SupplyState(TelegramBaseState):
 
 @state_machine.register('NEW_SUPPLY')
 class NewSupplyState(TelegramBaseState):
-    def get_msg_text(self) -> str:
-        return 'Пришлите название для новой поставки'
+    msg_text = 'Пришлите название для новой поставки'
+    inline_keyboard = [
+        [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
+        _MAIN_MENU_INLINE_BUTTON
+    ]
 
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
-        return [[InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')]]
-
-    def react_on_message(self) -> Optional[Locator]:
+    def react_on_message(self) -> Locator | None:
         wb_client = WBApiClient()
         new_supply_name = self.update.message.text
         wb_client.create_new_supply(new_supply_name)
         return Locator('SUPPLIES')
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case 'cancel':
@@ -317,7 +314,7 @@ class NewSupplyState(TelegramBaseState):
 
 @state_machine.register('EDIT_SUPPLY')
 class EditSupplyState(TelegramBaseState):
-    def enter_state(self, update: Update, context: CallbackContext, **params) -> Optional[Locator]:
+    def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         wb_client = WBApiClient()
         orders = wb_client.get_supply_orders(params['supply_id'])
         order_ids = {order.id for order in orders}
@@ -354,7 +351,8 @@ class EditSupplyState(TelegramBaseState):
             paginator_keyboard = paginator.get_keyboard(
                 page_number=params.get('page_number', 1),
             )
-            self.keyboard = paginator_keyboard + keyboard
+            self.inline_keyboard = paginator_keyboard + keyboard
+            self.inline_keyboard.append(_MAIN_MENU_INLINE_BUTTON)
             self.msg_text = f'Заказы в поставке - всего {len(orders)}шт'
         else:
             self.msg_text = 'В поставке нет заказов'
@@ -366,7 +364,7 @@ class EditSupplyState(TelegramBaseState):
 
         return Locator(self.state_name, params)
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case query if query.isdigit():
@@ -387,6 +385,8 @@ class EditSupplyState(TelegramBaseState):
 
 @state_machine.register('CHECK_WAITING_ORDERS')
 class CheckWaitingOrdersState(TelegramBaseState):
+    inline_keyboard = [_MAIN_MENU_INLINE_BUTTON]
+
     def get_state_data(self, **params) -> dict:
         supplies = filter_supplies(SupplyFilter.CLOSED)[::-1]
 
@@ -425,7 +425,7 @@ class CheckWaitingOrdersState(TelegramBaseState):
             text = 'Нет заказов, ожидающих сортировки'
         return text
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case 'start':
@@ -452,13 +452,16 @@ class OrderDetailsState(TelegramBaseState):
                 if order.id == order_id:
                     return {'order': order}
 
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
         keyboard = [
             [InlineKeyboardButton('Перенести в поставку', callback_data='add_to_supply')]
         ]
 
         if self.state_data.get('supply_id'):
-            keyboard.append([InlineKeyboardButton('Вернуться к поставке', callback_data='supply')])
+            keyboard.extend([
+                [InlineKeyboardButton('Вернуться к поставке', callback_data='supply')],
+                _MAIN_MENU_INLINE_BUTTON
+            ])
 
         return keyboard
 
@@ -481,7 +484,7 @@ class OrderDetailsState(TelegramBaseState):
 
         return text
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case 'supply':
@@ -494,18 +497,18 @@ class OrderDetailsState(TelegramBaseState):
 
 @state_machine.register('ADD_ORDER_TO_SUPPLY')
 class AddOrderToSupplyState(TelegramBaseState):
+    msg_text = 'Выберите поставку из существующих либо сообщением пришлите название новой поставки'
+
     def get_state_data(self, **params) -> dict | None:
         active_supplies = filter_supplies(SupplyFilter.ACTIVE)
         return {'supplies': active_supplies}
 
-    def get_msg_text(self) -> str:
-        return 'Выберите поставку из существующих либо сообщением пришлите название новой поставки'
-
-    def get_keyboard(self) -> list[list[InlineKeyboardButton]]:
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
         keyboard = [
             [InlineKeyboardButton(str(supply), callback_data=supply.id)]
             for supply in self.state_data['supplies']
         ]
+        keyboard.append(_MAIN_MENU_INLINE_BUTTON)
         return keyboard
 
     def add_to_supply(self, supply_id: str):
@@ -524,14 +527,14 @@ class AddOrderToSupplyState(TelegramBaseState):
                     'Произошла ошибка. Попробуйте позже'
                 )
 
-    def react_on_message(self) -> Optional[Locator]:
+    def react_on_message(self) -> Locator | None:
         wb_client = WBApiClient()
         new_supply_name = self.update.message.text
         supply_id = wb_client.create_new_supply(new_supply_name)
         self.add_to_supply(supply_id)
         return Locator('SUPPLY', {'supply_id': supply_id})
 
-    def react_on_inline_keyboard(self) -> Optional[Locator]:
+    def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
         match query:
             case 'start':
