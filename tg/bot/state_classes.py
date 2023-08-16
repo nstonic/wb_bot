@@ -112,6 +112,12 @@ class TelegramBaseState(BaseState):
                 )
             except TelegramError as ex:
                 if 'Message is not modified' in str(ex):
+                    if self.update.callback_query:
+                        with suppress(TelegramError):
+                            self.context.bot.answer_callback_query(
+                                self.update.callback_query.id,
+                                ''
+                            )
                     return
             else:
                 return
