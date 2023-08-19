@@ -3,7 +3,7 @@ from typing import Iterable, Generator
 import more_itertools
 from requests import Response, request
 
-from .models import Supply, Order, Product, OrderQRCode, SupplyQRCode, OrderStatus
+from .types import Supply, Order, Product, OrderQRCode, SupplyQRCode, OrderStatus
 from .errors import check_response, retry_on_network_error, AuthError
 
 

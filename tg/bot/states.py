@@ -5,7 +5,7 @@ from django.conf import settings
 from telegram import Update, InlineKeyboardButton  # noqa
 from telegram.ext import CallbackContext  # noqa
 
-from wb_api import WBApiClient
+from wb.wb_api import WBApiClient
 from .helpers import filter_supplies, SupplyFilter
 from .state_machine import StateMachine
 from .state_classes import Locator, TelegramBaseState
@@ -354,7 +354,7 @@ class EditSupplyState(TelegramBaseState):
         else:
             self.msg_text = 'В поставке нет заказов'
 
-        self.state_data = params | self.get_state_data(**params)
+        self.state_data = params
         self.update = update
         self.context = context
         self.answer_to_user(edit_current_message=True)

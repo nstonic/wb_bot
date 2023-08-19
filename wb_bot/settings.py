@@ -14,7 +14,7 @@ from pathlib import Path
 
 from environs import Env
 
-from wb_api import WBApiClient
+from wb.wb_api import WBApiClient
 
 env = Env()
 env.read_env()
@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'phonenumber_field',
 
     'employers',
-    'tg'
+    'tg',
+    'wb',
 ]
 
 MIDDLEWARE = [
