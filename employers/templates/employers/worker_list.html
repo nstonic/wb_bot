@@ -23,8 +23,8 @@
                 <td style="font-size:14px">{{ worker.last_name }} {{ worker.first_name }} {{ worker.middle_name }}</td>
                 <td style="font-size:14px">{{ worker.department | default:"---" }}</td>
                 <td style="font-size:14px">{{ worker.position | default:"---" }}</td>
-                <td style="font-size:14px">{{ worker.birth_day | date:"d.m.y" }}</td>
-                <td style="font-size:14px">{{ worker.cell_phone.as_international | default:"---" }}</td>
+                <td style="white-space:nowrap;font-size:14px">{{ worker.birth_day | date:"d.m.y" }}</td>
+                <td style="white-space:nowrap;font-size:14px">{{ worker.cell_phone.as_international | default:"---" }}</td>
                 <td style="font-size:14px">{{ worker.inner_phone | default:"---" }}</td>
                 <td style="font-size:14px">{{ worker.email | default:"---" }}</td>
                 <td style="font-size:14px">{{ worker.icq | default:"---" }}</td>
