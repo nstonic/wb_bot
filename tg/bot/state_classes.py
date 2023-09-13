@@ -32,16 +32,17 @@ class BaseState:
         pass
 
 
-class TelegramBaseState(BaseState):
+class ClassicState(BaseState):
     msg_text: str | None = None
     inline_keyboard: list[list[InlineKeyboardButton]] | None = None
     keyboard: list[list[KeyboardButton]] | None = None
 
     def __init__(self, state_name: str):
+        super().__init__(state_name)
         self.state_data = {}
         self.update: Update | None = None
         self.context: CallbackContext | None = None
-        super().__init__(state_name)
+        self.message_sending_params = {}
 
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         self.update = update
@@ -50,7 +51,7 @@ class TelegramBaseState(BaseState):
         self.msg_text = self.get_msg_text()
         self.inline_keyboard = self.get_inline_keyboard()
         self.keyboard = self.get_keyboard()
-        self.answer_to_user()
+        self.answer_user()
         return Locator(self.state_name, self.state_data)
 
     def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
@@ -80,26 +81,33 @@ class TelegramBaseState(BaseState):
     def react_on_message(self) -> Locator | None:
         pass
 
-    def answer_to_user(
-            self,
-            parse_mode: str = 'HTML',
-            edit_current_message: bool = True
-    ):
-        parse_mode = self.state_data.get('parse_mode', parse_mode)
-        edit_current_message = self.state_data.get('edit_current_message', edit_current_message)
-
-        text = self.msg_text or ' '
+    def get_markup(self):
         keyboard = self.inline_keyboard or self.keyboard or []
 
-        if not keyboard:
-            reply_markup = None
-        else:
-            if isinstance(keyboard[0][0], InlineKeyboardButton):
+        match keyboard:
+            case keyboard if isinstance(keyboard[0][0], InlineKeyboardButton):
                 reply_markup = InlineKeyboardMarkup(keyboard)
-            elif isinstance(keyboard[0][0], KeyboardButton):
+            case keyboard if isinstance(keyboard[0][0], KeyboardButton):
                 reply_markup = ReplyKeyboardMarkup(keyboard)
-            else:
+            case _:
                 reply_markup = None
+
+        return reply_markup
+
+    def answer_user(self):
+        self.context.bot.send_message(
+            chat_id=self.update.effective_chat.id,
+            text=self.msg_text or ' ',
+            reply_markup=self.get_markup(),
+            **self.message_sending_params,
+        )
+
+
+class TelegramBaseState(ClassicState):
+
+    def answer_user(self, edit_current_message: bool = True):
+        text = self.msg_text or ' '
+        reply_markup = self.get_markup()
 
         if edit_current_message:
             try:
@@ -108,7 +116,7 @@ class TelegramBaseState(BaseState):
                     message_id=self.update.effective_message.message_id,
                     text=text,
                     reply_markup=reply_markup,
-                    parse_mode=parse_mode
+                    **self.message_sending_params
                 )
             except TelegramError as ex:
                 if 'Message is not modified' in str(ex):
@@ -127,9 +135,10 @@ class TelegramBaseState(BaseState):
                 chat_id=self.update.effective_chat.id,
                 message_id=self.update.effective_message.message_id
             )
+
         self.context.bot.send_message(
             chat_id=self.update.effective_chat.id,
             text=text,
             reply_markup=reply_markup,
-            parse_mode=parse_mode
+            **self.message_sending_params,
         )

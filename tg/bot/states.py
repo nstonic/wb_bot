@@ -357,7 +357,7 @@ class EditSupplyState(TelegramBaseState):
         self.state_data = params
         self.update = update
         self.context = context
-        self.answer_to_user(edit_current_message=True)
+        self.answer_user(edit_current_message=True)
 
         return Locator(self.state_name, params)
 
