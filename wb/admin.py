@@ -1,7 +1,11 @@
 from django.contrib import admin
 
+from .models import Supply, Order, Product
 
-from .models import Supply, Order
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    pass
 
 
 @admin.register(Supply)

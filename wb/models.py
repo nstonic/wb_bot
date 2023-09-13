@@ -21,10 +21,13 @@ class Supply(models.Model):
 
 
 class Product(models.Model):
-    article = models.CharField('Артикул', max_length=64)
-    name = models.CharField('Название', max_length=128)
-    barcode = models.CharField('Штрихкод', max_length=32)
-    brand = models.CharField('Бренд', max_length=32)
+    article = models.CharField('Артикул', max_length=255, primary_key=True)
+    name = models.CharField('Название', max_length=255)
+    barcode = models.CharField('Штрихкод', max_length=255)
+    brand = models.CharField('Бренд', max_length=64)
+
+    def __str__(self):
+        return self.article
 
     class Meta:
         verbose_name = 'Товар'
@@ -33,13 +36,30 @@ class Product(models.Model):
 
 
 class Order(models.Model):
+    STATUSES = (
+        ('WAITING', 'В работе'),
+        ('SORTED', 'Отсортировано'),
+        ('SOLD', 'Получено покупателем'),
+        ('CANCELED', 'Отменена'),
+        ('CANCELED_BY_CLIENT', 'Отмена покупателем'),
+        ('DEFECT', 'Брак'),
+        ('READY_FOR_PICK_UP', 'Прибыло на ПВЗ'),
+    )
+
+    id = models.IntegerField(primary_key=True)
     supply = models.ForeignKey(Supply, on_delete=models.PROTECT, verbose_name='Поставка', null=True, blank=True)
     price = models.DecimalField('Сумма', max_digits=10, decimal_places=2)
-    product = models.ForeignKey(Product, on_delete=models.PROTECT)
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name='Товар')
     created_at = models.DateTimeField('Дата и время закрытия')
-    status = models.CharField('Статус', max_length=32)
-    qr_code = models.TextField()
-    qr_code_number = models.DecimalField('номер QR-кода', max_digits=11, decimal_places=4)
+    status = models.CharField('Статус', max_length=32, choices=STATUSES, default='WAITING')
+    qr_code = models.TextField(blank=True)
+    qr_code_number = models.DecimalField(
+        'номер QR-кода',
+        max_digits=11,
+        decimal_places=4,
+        blank=True,
+        null=True
+    )
 
     @property
     def created_ago(self):

@@ -56,7 +56,7 @@ class WBApiClient:
         )
         for product_card in response.json()['data']:
             if product_card['vendorCode'] == article:
-                return Product.parse_from_card(product_card)
+                return Product.parse_card(product_card)
         return Product(article=article)
 
     def get_products_by_articles(self, articles: Iterable) -> Generator:
@@ -67,7 +67,7 @@ class WBApiClient:
                 json={'vendorCodes': chunk}
             )
             for product_card in response.json()['data']:
-                yield product_card
+                yield Product.parse_card(product_card)
 
     def get_supplies(self, limit: int = 1000, next: int = 0) -> tuple[list[Supply], int]:
         params = {

@@ -1,10 +1,13 @@
 from collections import Counter
 from contextlib import suppress
+from datetime import datetime
 
 from django.conf import settings
+
 from telegram import Update, InlineKeyboardButton  # noqa
 from telegram.ext import CallbackContext  # noqa
 
+from wb.models import Order, Product
 from wb.wb_api import WBApiClient
 from .helpers import filter_supplies, SupplyFilter
 from .state_machine import StateMachine
@@ -42,6 +45,36 @@ class NewOrdersState(TelegramBaseState):
     def get_state_data(self, **params) -> dict:
         wb_client = WBApiClient()
         new_orders = wb_client.get_new_orders()
+        articles = [order.article for order in new_orders]
+        products = Product.objects.bulk_create(
+            [
+                Product(
+                    article=product.article,
+                    name=product.name,
+                    barcode=product.barcode,
+                    brand='Цвет'
+                )
+                for product in wb_client.get_products_by_articles(articles)
+            ],
+            update_conflicts=True,
+            update_fields=['name', 'barcode'],
+            unique_fields=['article']
+        )
+        products_by_articles = {
+            product.article: product
+            for product in products
+        }
+
+        for order in new_orders:
+            product = products_by_articles[order.article]
+            Order.objects.update_or_create(
+                id=order.id,
+                defaults={
+                    'price': order.price,
+                    'product': product,
+                    'created_at': order.created_at
+                }
+            )
         return {'new_orders': new_orders}
 
     def get_msg_text(self) -> str:
@@ -54,7 +87,7 @@ class NewOrdersState(TelegramBaseState):
 
         return text
 
-    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]] | None:
         new_orders = self.state_data.get('new_orders')
 
         if new_orders:
@@ -461,6 +494,9 @@ class OrderDetailsState(TelegramBaseState):
 
     def get_msg_text(self) -> str:
         order = self.state_data['order']
+        created_ago = datetime.now().timestamp() - self.created_at.timestamp()
+        hours, seconds = divmod(int(created_ago), 3600)
+        minutes, seconds = divmod(seconds, 60)
 
         if supply_id := self.state_data.get('supply_id'):
             order_qr_code = self.state_data['order_qr_code']
@@ -468,12 +504,12 @@ class OrderDetailsState(TelegramBaseState):
                    f'Стикер: <b>{order_qr_code.part_a} {order_qr_code.part_b}</b>\n' \
                    f'Артикул: <b>{order.article}</b>\n' \
                    f'Поставка: <b>{supply_id}</b>\n' \
-                   f'Время с момента заказа: <b>{order.created_ago}</b>\n' \
+                   f'Время с момента заказа: <b>{hours:02.0f}ч. {minutes:02.0f}м.</b>\n' \
                    f'Цена: <b>{order.converted_price / 100} ₽</b>'
         else:
             text = f'Номер заказа: <b>{order.id}</b>\n' \
                    f'Артикул: <b>{order.article}</b>\n' \
-                   f'Время с момента заказа: <b>{order.created_ago}</b>\n' \
+                   f'Время с момента заказа: <b>{hours:02.0f}ч. {minutes:02.0f}м.</b>\n' \
                    f'Цена: <b>{order.converted_price / 100} ₽</b>'
 
         return text

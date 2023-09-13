@@ -20,19 +20,15 @@ class Supply(BaseModel):
 class Order(BaseModel):
     id: int
     supply_id: str = Field(alias='supplyId', default='')
-    converted_price: int = Field(alias='convertedPrice')
     article: str
     created_at: datetime = Field(alias='createdAt')
-    created_ago: str | None = Field(default=None, exclude=True)
+    price: int
 
-    def model_post_init(self, __context: Any) -> None:
+    def __str__(self):
         created_ago = datetime.now().timestamp() - self.created_at.timestamp()
         hours, seconds = divmod(int(created_ago), 3600)
         minutes, seconds = divmod(seconds, 60)
-        self.created_ago = f'{hours:02.0f}ч. {minutes:02.0f}м.'
-
-    def __str__(self):
-        return f'{self.article} | {self.created_ago}'
+        return f'{self.article} | {hours:02.0f}ч. {minutes:02.0f}м.'
 
 
 class OrderStatus(BaseModel):
@@ -65,7 +61,7 @@ class Product:
     media_files: list[bytes] = tuple()
 
     @staticmethod
-    def parse_from_card(product_card: dict):
+    def parse_card(product_card: dict):
         characteristics = {
             key: value
             for characteristic in product_card.get('characteristics')
