@@ -8,7 +8,7 @@ from telegram.ext import (
     Filters
 )
 
-from tg.bot.states import state_machine
+from tg.bot import state_machine
 
 
 class Command(BaseCommand):

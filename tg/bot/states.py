@@ -311,55 +311,60 @@ class NewSupplyState(EditMessageBaseState):
 
 @state_machine.register('EDIT_SUPPLY')
 class EditSupplyState(EditMessageBaseState):
-    def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
+
+    def get_state_data(self, **params) -> dict:
         wb_client = WBApiClient()
         orders = wb_client.get_supply_orders(params['supply_id'])
         order_ids = {order.id for order in orders}
+
+        if params.get('order_ids') == order_ids:
+            qr_codes = params['qr_codes']
+        else:
+            self.context.bot.answer_callback_query(
+                self.update.callback_query.id,
+                'Загружаются данные по заказам. Подождите'
+            )
+            sorted_orders = sorted(orders, key=lambda o: o.created_at)
+            qr_codes = wb_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
+
+        params['order_ids'] = order_ids
+        params['qr_codes'] = qr_codes
+
+        return params
+
+    def get_msg_text(self) -> str:
+        orders = self.state_data['orders']
+        if orders:
+            return f'Заказы в поставке - всего {len(orders)}шт'
+        else:
+            return 'В поставке нет заказов'
+
+    def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
+        orders = self.state_data['orders']
+        qr_codes = self.state_data['qr_codes']
+        page_number = self.state_data.get('page_number', 1)
+
         keyboard = [[InlineKeyboardButton('Вернуться к поставке', callback_data='supply')]]
 
-        if orders:
-            if params.get('order_ids') == order_ids:
-                qr_codes = params['qr_codes']
-            else:
-                context.bot.answer_callback_query(
-                    update.callback_query.id,
-                    'Загружаются данные по заказам. Подождите'
-                )
-                sorted_orders = sorted(orders, key=lambda o: o.created_at)
-                qr_codes = wb_client.get_qr_codes_for_orders([order.id for order in sorted_orders])
-                params['order_ids'] = order_ids
-                params['qr_codes'] = qr_codes
+        def button_text_getter(order):
+            with suppress(StopIteration):
+                qr_code = next(filter(
+                    lambda qr: qr.order_id == order.id,
+                    qr_codes
+                ))
+                return f'{order.article} | {qr_code.part_a} {qr_code.part_b}'
+            return order.article
 
-            def button_text_getter(order):
-                with suppress(StopIteration):
-                    qr_code = next(filter(
-                        lambda qr: qr.order_id == order.id,
-                        qr_codes
-                    ))
-                    return f'{order.article} | {qr_code.part_a} {qr_code.part_b}'
-                return order.article
+        paginator = Paginator(
+            orders,
+            button_text_getter=button_text_getter,
+            button_callback_data_getter=lambda o: o.id,
+            page_size=settings.BOT_PAGINATOR_PAGE_SIZE
+        )
+        paginator_keyboard = paginator.get_keyboard(page_number=page_number, )
+        inline_keyboard = paginator_keyboard + keyboard + [_MAIN_MENU_INLINE_BUTTON]
 
-            paginator = Paginator(
-                orders,
-                button_text_getter=button_text_getter,
-                button_callback_data_getter=lambda o: o.id,
-                page_size=settings.BOT_PAGINATOR_PAGE_SIZE
-            )
-            paginator_keyboard = paginator.get_keyboard(
-                page_number=params.get('page_number', 1),
-            )
-            self.inline_keyboard = paginator_keyboard + keyboard
-            self.inline_keyboard.append(_MAIN_MENU_INLINE_BUTTON)
-            self.msg_text = f'Заказы в поставке - всего {len(orders)}шт'
-        else:
-            self.msg_text = 'В поставке нет заказов'
-
-        self.state_data = params
-        self.update = update
-        self.context = context
-        self.answer_user(edit_current_message=True)
-
-        return Locator(self.state_name, params)
+        return inline_keyboard
 
     def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
