@@ -1,16 +1,19 @@
-from typing import Type, cast
+from typing import Type
 
 from telegram import Update  # noqa
 from telegram.ext import CallbackContext  # noqa
 
-from employers.models import Worker
 from tg.bot.state_classes import Locator, BaseState
 
 
 class StateMachine(dict[str, BaseState]):
+    commands = ['/start']
 
-    def __init__(self, start_state_name: str):  # noqa
+    def __init__(self, *, start_state_name: str):
+        super().__init__()
         self.start_state_name = Locator(start_state_name)
+        self.update = None
+        self.context = None
 
     def register(self, state_name: str):
         def decorator(cls: Type[BaseState]):
@@ -19,53 +22,37 @@ class StateMachine(dict[str, BaseState]):
         return decorator
 
     def process(self, update: Update, context: CallbackContext):
-        users = Worker.objects.filter(has_access_to_wb_bot=True)
-        user_ids = [user.tg_id for user in users]
+        self.update = update
+        self.context = context
 
-        if update.effective_chat.id not in user_ids:
-            return
-
-        if self.react_on_commands(update, context):
+        if update.message and update.message.text in self.commands:
+            self.react_on_commands()
             return
 
         locator = context.user_data.get('locator')
-        locator = cast(Locator, locator)
+
         if not locator:
-            self.switch_state(update, context, self.start_state_name)
+            self.switch_state(self.start_state_name)
             return
         else:
             state = self.get(locator.state_name)
-            next_state_locator = state.process(update, context, **locator.params)
+            next_state_locator = state.process(self.update, self.context, **locator.params)
 
-        if next_state_locator:
-            self.switch_state(update, context, next_state_locator, state)
+        if not next_state_locator:
+            return
 
-    def react_on_commands(self, update: Update, context: CallbackContext) -> bool:
-        commands = ['/start']
+        if locator != next_state_locator:
+            state.exit_state(update, context)
 
-        if not update.message or update.message.text not in commands:
-            return False
+        self.switch_state(next_state_locator)
 
-        if update.message.text == '/start':
-            self.switch_state(update, context, next_state_locator=self.start_state_name)
+    def react_on_commands(self):
+        if self.update.message.text == '/start':
+            self.switch_state(self.start_state_name)
 
-        return True
-
-    def switch_state(
-            self,
-            update: Update,
-            context: CallbackContext,
-            next_state_locator: Locator,
-            current_state: BaseState = None
-    ):
-        if current_state:
-            current_state.exit_state(update, context)
-            current_state_name = current_state.state_name
-        else:
-            current_state_name = 'START'
-
+    def switch_state(self, next_state_locator: Locator):
         next_state = self.get(next_state_locator.state_name)
-        print(current_state_name, '>>>', next_state.state_name)
-        if locator := next_state.enter_state(update=update, context=context, **next_state_locator.params):
+        if locator := next_state.enter_state(self.update, self.context, **next_state_locator.params):
             next_state_locator = locator
-        context.user_data['locator'] = next_state_locator
+        self.context.user_data['locator'] = next_state_locator
+

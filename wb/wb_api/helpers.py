@@ -1,6 +1,6 @@
 from enum import Enum
 
-from wb.wb_api import WBApiClient
+from . import WBApiClient
 
 
 class SupplyFilter(Enum):

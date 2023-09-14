@@ -103,7 +103,7 @@ class ClassicState(BaseState):
         )
 
 
-class TelegramBaseState(ClassicState):
+class EditMessageBaseState(ClassicState):
 
     def answer_user(self, edit_current_message: bool = True):
         text = self.msg_text or ' '

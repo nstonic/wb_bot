@@ -6,9 +6,9 @@ from telegram import Update, InlineKeyboardButton  # noqa
 from telegram.ext import CallbackContext  # noqa
 
 from wb.wb_api import WBApiClient
-from .helpers import filter_supplies, SupplyFilter
+from wb.wb_api.helpers import filter_supplies, SupplyFilter
 from .state_machine import StateMachine
-from .state_classes import Locator, TelegramBaseState
+from .state_classes import Locator, EditMessageBaseState
 from .paginator import Paginator
 from .stickers import get_orders_stickers, get_supply_sticker
 
@@ -17,7 +17,7 @@ _MAIN_MENU_INLINE_BUTTON = [InlineKeyboardButton('Основное меню', ca
 
 
 @state_machine.register('MAIN_MENU')
-class MainMenuState(TelegramBaseState):
+class MainMenuState(EditMessageBaseState):
     msg_text = 'Основное меню'
     inline_keyboard = [
         [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
@@ -37,7 +37,7 @@ class MainMenuState(TelegramBaseState):
 
 
 @state_machine.register('NEW_ORDERS')
-class NewOrdersState(TelegramBaseState):
+class NewOrdersState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         wb_client = WBApiClient()
@@ -85,7 +85,7 @@ class NewOrdersState(TelegramBaseState):
 
 
 @state_machine.register('SUPPLIES')
-class SuppliesState(TelegramBaseState):
+class SuppliesState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         only_active = params.get('only_active', True)
@@ -150,7 +150,7 @@ class SuppliesState(TelegramBaseState):
 
 
 @state_machine.register('SUPPLY')
-class SupplyState(TelegramBaseState):
+class SupplyState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         supply_id = params['supply_id']
@@ -287,7 +287,7 @@ class SupplyState(TelegramBaseState):
 
 
 @state_machine.register('NEW_SUPPLY')
-class NewSupplyState(TelegramBaseState):
+class NewSupplyState(EditMessageBaseState):
     msg_text = 'Пришлите название для новой поставки'
     inline_keyboard = [
         [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
@@ -310,7 +310,7 @@ class NewSupplyState(TelegramBaseState):
 
 
 @state_machine.register('EDIT_SUPPLY')
-class EditSupplyState(TelegramBaseState):
+class EditSupplyState(EditMessageBaseState):
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         wb_client = WBApiClient()
         orders = wb_client.get_supply_orders(params['supply_id'])
@@ -381,7 +381,7 @@ class EditSupplyState(TelegramBaseState):
 
 
 @state_machine.register('CHECK_WAITING_ORDERS')
-class CheckWaitingOrdersState(TelegramBaseState):
+class CheckWaitingOrdersState(EditMessageBaseState):
     inline_keyboard = [_MAIN_MENU_INLINE_BUTTON]
 
     def get_state_data(self, **params) -> dict:
@@ -427,7 +427,7 @@ class CheckWaitingOrdersState(TelegramBaseState):
 
 
 @state_machine.register('ORDER_DETAILS')
-class OrderDetailsState(TelegramBaseState):
+class OrderDetailsState(EditMessageBaseState):
     def get_state_data(self, **params) -> dict | None:
         order_id = params['order_id']
         supply_id = params.get('supply_id')
@@ -490,7 +490,7 @@ class OrderDetailsState(TelegramBaseState):
 
 
 @state_machine.register('ADD_ORDER_TO_SUPPLY')
-class AddOrderToSupplyState(TelegramBaseState):
+class AddOrderToSupplyState(EditMessageBaseState):
     msg_text = 'Выберите поставку из существующих либо сообщением пришлите название новой поставки'
 
     def get_state_data(self, **params) -> dict | None:
