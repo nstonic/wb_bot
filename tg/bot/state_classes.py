@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from contextlib import suppress
 from typing import NamedTuple
 
@@ -17,32 +18,38 @@ class Locator(NamedTuple):
     params: dict = dict()
 
 
-class BaseState:
+class BaseState(ABC):
 
     def __init__(self, state_name: str):
         self.state_name = state_name
 
+    @abstractmethod
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         pass
 
+    @abstractmethod
     def exit_state(self, update: Update, context: CallbackContext, **params) -> None:
         pass
 
+    @abstractmethod
     def process(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         pass
 
 
-class ClassicState(BaseState):
+class ClassicBaseState(BaseState):
     msg_text: str | None = None
     inline_keyboard: list[list[InlineKeyboardButton]] | None = None
     keyboard: list[list[KeyboardButton]] | None = None
+    message_sending_params: dict = {}
 
     def __init__(self, state_name: str):
         super().__init__(state_name)
         self.state_data = {}
         self.update: Update | None = None
         self.context: CallbackContext | None = None
-        self.message_sending_params = {}
+
+    def exit_state(self, update: Update, context: CallbackContext, **params) -> None:
+        pass
 
     def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
         self.update = update
@@ -103,42 +110,30 @@ class ClassicState(BaseState):
         )
 
 
-class EditMessageBaseState(ClassicState):
+class EditMessageBaseState(ClassicBaseState):
 
-    def answer_user(self, edit_current_message: bool = True):
-        text = self.msg_text or ' '
-        reply_markup = self.get_markup()
-
-        if edit_current_message:
-            try:
-                self.context.bot.edit_message_text(
-                    chat_id=self.update.effective_chat.id,
-                    message_id=self.update.effective_message.message_id,
-                    text=text,
-                    reply_markup=reply_markup,
-                    **self.message_sending_params
-                )
-            except TelegramError as ex:
-                if 'Message is not modified' in str(ex):
-                    if self.update.callback_query:
-                        with suppress(TelegramError):
-                            self.context.bot.answer_callback_query(
-                                self.update.callback_query.id,
-                                ''
-                            )
-                    return
-            else:
-                return
+    def answer_user(self):
+        try:
+            self.context.bot.edit_message_text(
+                chat_id=self.update.effective_chat.id,
+                message_id=self.update.effective_message.message_id,
+                text=self.msg_text or ' ',
+                reply_markup=self.get_markup(),
+                **self.message_sending_params,
+            )
+            return
+        except TelegramError as ex:
+            if 'Message is not modified' in str(ex) and self.update.callback_query:
+                with suppress(TelegramError):
+                    self.context.bot.answer_callback_query(
+                        self.update.callback_query.id,
+                        '',
+                    )
 
         with suppress(TelegramError):
             self.context.bot.delete_message(
                 chat_id=self.update.effective_chat.id,
-                message_id=self.update.effective_message.message_id
+                message_id=self.update.effective_message.message_id,
             )
 
-        self.context.bot.send_message(
-            chat_id=self.update.effective_chat.id,
-            text=text,
-            reply_markup=reply_markup,
-            **self.message_sending_params,
-        )
+        super().answer_user()

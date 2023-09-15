@@ -434,7 +434,7 @@ class CheckWaitingOrdersState(EditMessageBaseState):
 @state_machine.register('ORDER_DETAILS')
 class OrderDetailsState(EditMessageBaseState):
     message_sending_params = {'parse_mode': 'HTML'}
-    
+
     def get_state_data(self, **params) -> dict | None:
         order_id = params['order_id']
         supply_id = params.get('supply_id')
