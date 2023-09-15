@@ -92,9 +92,9 @@ class ClassicBaseState(BaseState):
         keyboard = self.inline_keyboard or self.keyboard or []
 
         match keyboard:
-            case keyboard if isinstance(keyboard[0][0], InlineKeyboardButton):
+            case [[InlineKeyboardButton(), *_], *_]:
                 reply_markup = InlineKeyboardMarkup(keyboard)
-            case keyboard if isinstance(keyboard[0][0], KeyboardButton):
+            case [[KeyboardButton(), *_], *_]:
                 reply_markup = ReplyKeyboardMarkup(keyboard)
             case _:
                 reply_markup = None
