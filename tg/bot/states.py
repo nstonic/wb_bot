@@ -433,6 +433,8 @@ class CheckWaitingOrdersState(EditMessageBaseState):
 
 @state_machine.register('ORDER_DETAILS')
 class OrderDetailsState(EditMessageBaseState):
+    message_sending_params = {'parse_mode': 'HTML'}
+    
     def get_state_data(self, **params) -> dict | None:
         order_id = params['order_id']
         supply_id = params.get('supply_id')
@@ -457,12 +459,11 @@ class OrderDetailsState(EditMessageBaseState):
         ]
 
         if self.state_data.get('supply_id'):
-            keyboard.extend([
+            keyboard.append(
                 [InlineKeyboardButton('Вернуться к поставке', callback_data='supply')],
-                _MAIN_MENU_INLINE_BUTTON
-            ])
+            )
 
-        return keyboard
+        return keyboard + [_MAIN_MENU_INLINE_BUTTON]
 
     def get_msg_text(self) -> str:
         order = self.state_data['order']
