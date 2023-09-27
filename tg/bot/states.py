@@ -7,10 +7,11 @@ from telegram.ext import CallbackContext  # noqa
 
 from wb.wb_api import WBApiClient
 from wb.wb_api.helpers import filter_supplies, SupplyFilter
+from .helpers import send_stickers_job
 from .state_machine import StateMachine
 from .state_classes import Locator, EditMessageBaseState
 from .paginator import Paginator
-from .stickers import get_orders_stickers, get_supply_sticker
+from .stickers import get_supply_sticker
 
 state_machine = StateMachine(start_state_name='MAIN_MENU')
 _MAIN_MENU_INLINE_BUTTON = [InlineKeyboardButton('Основное меню', callback_data='start')]
@@ -56,7 +57,7 @@ class NewOrdersState(EditMessageBaseState):
 
     def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
         new_orders = self.state_data.get('new_orders')
-
+        keyboard = []
         if new_orders:
             sorted_orders = sorted(new_orders, key=lambda o: o.created_at)
             paginator = Paginator(
@@ -65,11 +66,11 @@ class NewOrdersState(EditMessageBaseState):
                 button_callback_data_getter=lambda o: str(o.id),
                 page_size=settings.BOT_PAGINATOR_PAGE_SIZE
             )
-            keyboard = paginator.get_keyboard(
+            keyboard.append(paginator.get_keyboard(
                 page_number=self.state_data.get('page_number', 1),
-            )
-            keyboard.append(_MAIN_MENU_INLINE_BUTTON)
-            return keyboard
+            ))
+        keyboard.append(_MAIN_MENU_INLINE_BUTTON)
+        return keyboard
 
     def react_on_inline_keyboard(self) -> Locator | None:
         query = self.update.callback_query.data
@@ -206,28 +207,13 @@ class SupplyState(EditMessageBaseState):
     def send_stickers(self) -> Locator | None:
         self.context.bot.answer_callback_query(
             self.update.callback_query.id,
-            'Запущена подготовка стикеров. Подождите'
+            'Запущена подготовка стикеров'
         )
-        supply_id = self.state_data['supply_id']
-        wb_client = WBApiClient()
-        orders = wb_client.get_supply_orders(supply_id)
-        order_qr_codes = wb_client.get_qr_codes_for_orders(
-            [order.id for order in orders]
-        )
-        articles = set([order.article for order in orders])
-        products = [wb_client.get_product(article) for article in articles]
-        with get_orders_stickers(
-                orders,
-                products,
-                order_qr_codes,
-                supply_id
-        ) as zip_file:
-            self.context.bot.send_document(
-                chat_id=self.update.effective_chat.id,
-                document=zip_file.getvalue(),
-                filename=zip_file.name
-            )
-        return
+        job_context = {
+            'chat_id': self.update.effective_chat.id,
+            'supply_id': self.state_data['supply_id'],
+        }
+        self.context.job_queue.run_once(send_stickers_job, when=0, context=job_context)
 
     def close_supply(self):
         wb_client = WBApiClient()
