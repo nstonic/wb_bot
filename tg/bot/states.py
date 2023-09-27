@@ -15,6 +15,7 @@ from .stickers import get_supply_sticker
 
 state_machine = StateMachine(start_state_name='MAIN_MENU')
 _MAIN_MENU_INLINE_BUTTON = [InlineKeyboardButton('Основное меню', callback_data='start')]
+wb_client = WBApiClient()
 
 
 @state_machine.register('MAIN_MENU')
@@ -41,7 +42,6 @@ class MainMenuState(EditMessageBaseState):
 class NewOrdersState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
-        wb_client = WBApiClient()
         new_orders = wb_client.get_new_orders()
         return {'new_orders': new_orders}
 
@@ -155,8 +155,6 @@ class SupplyState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         supply_id = params['supply_id']
-
-        wb_client = WBApiClient()
         return {
             'supply': wb_client.get_supply(supply_id),
             'orders': wb_client.get_supply_orders(supply_id)
@@ -204,7 +202,7 @@ class SupplyState(EditMessageBaseState):
         ])
         return keyboard
 
-    def send_stickers(self) -> Locator | None:
+    def send_stickers(self):
         self.context.bot.answer_callback_query(
             self.update.callback_query.id,
             'Запущена подготовка стикеров'
@@ -216,7 +214,6 @@ class SupplyState(EditMessageBaseState):
         self.context.job_queue.run_once(send_stickers_job, when=0, context=job_context)
 
     def close_supply(self):
-        wb_client = WBApiClient()
         if not wb_client.send_supply_to_deliver(self.state_data['supply_id']):
             self.context.bot.answer_callback_query(
                 self.update.callback_query.id,
@@ -230,7 +227,6 @@ class SupplyState(EditMessageBaseState):
             self.send_supply_qr_code()
 
     def delete_supply(self):
-        wb_client = WBApiClient()
         if not wb_client.delete_supply_by_id(self.state_data['supply_id']):
             self.context.bot.answer_callback_query(
                 self.update.callback_query.id,
@@ -244,7 +240,6 @@ class SupplyState(EditMessageBaseState):
         return Locator('SUPPLIES')
 
     def send_supply_qr_code(self):
-        wb_client = WBApiClient()
         supply_qr_code = wb_client.get_supply_qr_code(self.state_data['supply_id'])
         supply_sticker = get_supply_sticker(supply_qr_code)
         self.context.bot.send_photo(
@@ -281,7 +276,6 @@ class NewSupplyState(EditMessageBaseState):
     ]
 
     def react_on_message(self) -> Locator | None:
-        wb_client = WBApiClient()
         new_supply_name = self.update.message.text
         wb_client.create_new_supply(new_supply_name)
         return Locator('SUPPLIES')
@@ -299,7 +293,6 @@ class NewSupplyState(EditMessageBaseState):
 class EditSupplyState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
-        wb_client = WBApiClient()
         orders = wb_client.get_supply_orders(params['supply_id'])
         order_ids = {order.id for order in orders}
 
@@ -377,8 +370,6 @@ class CheckWaitingOrdersState(EditMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         supplies = filter_supplies(SupplyFilter.CLOSED)[::-1]
-
-        wb_client = WBApiClient()
         orders = []
         for supply in supplies[:10]:
             orders.extend(
@@ -424,8 +415,6 @@ class OrderDetailsState(EditMessageBaseState):
     def get_state_data(self, **params) -> dict | None:
         order_id = params['order_id']
         supply_id = params.get('supply_id')
-        wb_client = WBApiClient()
-
         if supply_id:
             for order in wb_client.get_supply_orders(supply_id):
                 if order.id == order_id:
@@ -499,7 +488,6 @@ class AddOrderToSupplyState(EditMessageBaseState):
 
     def add_to_supply(self, supply_id: str):
         order_id = self.state_data['order_id']
-        wb_client = WBApiClient()
         if wb_client.add_order_to_supply(supply_id, order_id):
             if self.update.callback_query:
                 self.context.bot.answer_callback_query(
@@ -514,7 +502,6 @@ class AddOrderToSupplyState(EditMessageBaseState):
                 )
 
     def react_on_message(self) -> Locator | None:
-        wb_client = WBApiClient()
         new_supply_name = self.update.message.text
         supply_id = wb_client.create_new_supply(new_supply_name)
         self.add_to_supply(supply_id)
