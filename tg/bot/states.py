@@ -7,7 +7,7 @@ from telegram.ext import CallbackContext  # noqa
 
 from wb.wb_api import WBApiClient
 from wb.wb_api.helpers import filter_supplies, SupplyFilter
-from .helpers import send_stickers_job
+from .jobs import send_stickers_job
 from .state_machine import StateMachine
 from .state_classes import Locator, EditMessageBaseState
 from .paginator import Paginator
