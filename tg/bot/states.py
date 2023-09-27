@@ -66,7 +66,7 @@ class NewOrdersState(EditMessageBaseState):
                 button_callback_data_getter=lambda o: str(o.id),
                 page_size=settings.BOT_PAGINATOR_PAGE_SIZE
             )
-            keyboard.append(paginator.get_keyboard(
+            keyboard.extend(paginator.get_keyboard(
                 page_number=self.state_data.get('page_number', 1),
             ))
         keyboard.append(_MAIN_MENU_INLINE_BUTTON)
