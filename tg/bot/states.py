@@ -8,12 +8,15 @@ from telegram.ext import CallbackContext  # noqa
 from wb.wb_api import WBApiClient
 from wb.wb_api.helpers import filter_supplies, SupplyFilter
 from .jobs import send_stickers_job
-from .state_machine import StateMachine
-from .state_classes import Locator, OmniMessageBaseState
+from .state_machine import StateMachine, Locator
+from .state_classes import OmniMessageBaseState
 from .paginator import Paginator
 from .stickers import get_supply_sticker
 
-state_machine = StateMachine(start_state_name='MAIN_MENU')
+state_machine = StateMachine(
+    start_state_name='MAIN_MENU',
+    commands_map={'/start': Locator('MAIN_MENU')}
+)
 _MAIN_MENU_INLINE_BUTTON = [InlineKeyboardButton('Основное меню', callback_data='start')]
 wb_client = WBApiClient()
 
@@ -475,14 +478,11 @@ class OrderDetailsState(OmniMessageBaseState):
 class AddOrderToSupplyState(OmniMessageBaseState):
     msg_text = 'Выберите поставку из существующих либо сообщением пришлите название новой поставки'
 
-    def get_state_data(self, **params) -> dict | None:
-        active_supplies = filter_supplies(SupplyFilter.ACTIVE)
-        return {'supplies': active_supplies}
-
     def get_inline_keyboard(self) -> list[list[InlineKeyboardButton]]:
+        active_supplies = filter_supplies(SupplyFilter.ACTIVE)
         keyboard = [
             [InlineKeyboardButton(str(supply), callback_data=supply.id)]
-            for supply in self.state_data['supplies']
+            for supply in active_supplies
         ]
         keyboard.append(_MAIN_MENU_INLINE_BUTTON)
         return keyboard

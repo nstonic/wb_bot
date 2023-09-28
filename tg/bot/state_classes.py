@@ -1,6 +1,4 @@
-from abc import ABC, abstractmethod
 from contextlib import suppress
-from typing import NamedTuple
 
 from telegram import (
     Update,
@@ -12,28 +10,7 @@ from telegram import (
 )
 from telegram.ext import CallbackContext
 
-
-class Locator(NamedTuple):
-    state_name: str
-    params: dict = dict()
-
-
-class BaseState(ABC):
-
-    def __init__(self, state_name: str):
-        self.state_name = state_name
-
-    @abstractmethod
-    def enter_state(self, update: Update, context: CallbackContext, **params) -> Locator | None:
-        pass
-
-    @abstractmethod
-    def exit_state(self, update: Update, context: CallbackContext, **params) -> None:
-        pass
-
-    @abstractmethod
-    def process(self, update: Update, context: CallbackContext, **params) -> Locator | None:
-        pass
+from .state_machine import Locator, BaseState
 
 
 class ClassicBaseState(BaseState):
