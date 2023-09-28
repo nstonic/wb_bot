@@ -9,7 +9,7 @@ from wb.wb_api import WBApiClient
 from wb.wb_api.helpers import filter_supplies, SupplyFilter
 from .jobs import send_stickers_job
 from .state_machine import StateMachine
-from .state_classes import Locator, EditMessageBaseState
+from .state_classes import Locator, OmniMessageBaseState
 from .paginator import Paginator
 from .stickers import get_supply_sticker
 
@@ -19,13 +19,14 @@ wb_client = WBApiClient()
 
 
 @state_machine.register('MAIN_MENU')
-class MainMenuState(EditMessageBaseState):
+class MainMenuState(OmniMessageBaseState):
     msg_text = 'Основное меню'
     inline_keyboard = [
         [InlineKeyboardButton('Показать поставки', callback_data='show_supplies')],
         [InlineKeyboardButton('Новые заказы', callback_data='new_orders')],
         [InlineKeyboardButton('Заказы, ожидающие сортировки', callback_data='check_orders')]
     ]
+    try_edit = False
 
     def react_on_inline_keyboard(self) -> Locator:
         query = self.update.callback_query.data
@@ -39,7 +40,7 @@ class MainMenuState(EditMessageBaseState):
 
 
 @state_machine.register('NEW_ORDERS')
-class NewOrdersState(EditMessageBaseState):
+class NewOrdersState(OmniMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         new_orders = wb_client.get_new_orders()
@@ -86,7 +87,7 @@ class NewOrdersState(EditMessageBaseState):
 
 
 @state_machine.register('SUPPLIES')
-class SuppliesState(EditMessageBaseState):
+class SuppliesState(OmniMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         only_active = params.get('only_active', True)
@@ -151,7 +152,7 @@ class SuppliesState(EditMessageBaseState):
 
 
 @state_machine.register('SUPPLY')
-class SupplyState(EditMessageBaseState):
+class SupplyState(OmniMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         supply_id = params['supply_id']
@@ -268,7 +269,7 @@ class SupplyState(EditMessageBaseState):
 
 
 @state_machine.register('NEW_SUPPLY')
-class NewSupplyState(EditMessageBaseState):
+class NewSupplyState(OmniMessageBaseState):
     msg_text = 'Пришлите название для новой поставки'
     inline_keyboard = [
         [InlineKeyboardButton('Назад к списку поставок', callback_data='cancel')],
@@ -290,7 +291,7 @@ class NewSupplyState(EditMessageBaseState):
 
 
 @state_machine.register('EDIT_SUPPLY')
-class EditSupplyState(EditMessageBaseState):
+class EditSupplyState(OmniMessageBaseState):
 
     def get_state_data(self, **params) -> dict:
         orders = wb_client.get_supply_orders(params['supply_id'])
@@ -365,7 +366,7 @@ class EditSupplyState(EditMessageBaseState):
 
 
 @state_machine.register('CHECK_WAITING_ORDERS')
-class CheckWaitingOrdersState(EditMessageBaseState):
+class CheckWaitingOrdersState(OmniMessageBaseState):
     inline_keyboard = [_MAIN_MENU_INLINE_BUTTON]
 
     def get_state_data(self, **params) -> dict:
@@ -409,7 +410,7 @@ class CheckWaitingOrdersState(EditMessageBaseState):
 
 
 @state_machine.register('ORDER_DETAILS')
-class OrderDetailsState(EditMessageBaseState):
+class OrderDetailsState(OmniMessageBaseState):
     message_sending_params = {'parse_mode': 'HTML'}
 
     def get_state_data(self, **params) -> dict | None:
@@ -471,7 +472,7 @@ class OrderDetailsState(EditMessageBaseState):
 
 
 @state_machine.register('ADD_ORDER_TO_SUPPLY')
-class AddOrderToSupplyState(EditMessageBaseState):
+class AddOrderToSupplyState(OmniMessageBaseState):
     msg_text = 'Выберите поставку из существующих либо сообщением пришлите название новой поставки'
 
     def get_state_data(self, **params) -> dict | None:

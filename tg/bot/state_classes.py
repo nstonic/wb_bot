@@ -110,9 +110,21 @@ class ClassicBaseState(BaseState):
         )
 
 
-class EditMessageBaseState(ClassicBaseState):
+class OmniMessageBaseState(ClassicBaseState):
+    try_edit = True
 
     def answer_user(self):
+        if self.try_edit and self.try_edit_current():
+            return
+
+        with suppress(TelegramError):
+            self.context.bot.delete_message(
+                chat_id=self.update.effective_chat.id,
+                message_id=self.update.effective_message.message_id,
+            )
+        super().answer_user()
+
+    def try_edit_current(self):
         try:
             self.context.bot.edit_message_text(
                 chat_id=self.update.effective_chat.id,
@@ -121,7 +133,7 @@ class EditMessageBaseState(ClassicBaseState):
                 reply_markup=self.get_markup(),
                 **self.message_sending_params,
             )
-            return
+            return True
         except TelegramError as ex:
             if 'Message is not modified' in str(ex) and self.update.callback_query:
                 with suppress(TelegramError):
@@ -129,11 +141,3 @@ class EditMessageBaseState(ClassicBaseState):
                         self.update.callback_query.id,
                         '',
                     )
-
-        with suppress(TelegramError):
-            self.context.bot.delete_message(
-                chat_id=self.update.effective_chat.id,
-                message_id=self.update.effective_message.message_id,
-            )
-
-        super().answer_user()
