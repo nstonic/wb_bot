@@ -48,8 +48,8 @@ class StateMachine(dict[str, BaseState]):
         self.context = context
 
         if update.message and update.message.text in self.commands_map:
-            state = self.commands_map[update.message.text]
-            self.switch_state(state)
+            state_locator = self.commands_map[update.message.text]
+            self.switch_state(state_locator)
             return
 
         locator = context.user_data.get('locator')
