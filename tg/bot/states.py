@@ -14,8 +14,10 @@ from .paginator import Paginator
 from .stickers import get_supply_sticker
 
 state_machine = StateMachine(
-    start_state_name='MAIN_MENU',
-    commands_map={'/start': Locator('MAIN_MENU')}
+    start_state_locator=Locator('MAIN_MENU'),
+    commands_map={
+        '/start': Locator('MAIN_MENU')
+    }
 )
 _MAIN_MENU_INLINE_BUTTON = [InlineKeyboardButton('Основное меню', callback_data='start')]
 wb_client = WBApiClient()

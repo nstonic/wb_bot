@@ -30,10 +30,10 @@ class BaseState(ABC):
 
 class StateMachine(dict[str, BaseState]):
 
-    def __init__(self, *, start_state_name: str, commands_map: dict):
+    def __init__(self, *, start_state_locator: Locator, commands_map: dict):
         super().__init__()
         self.commands_map = commands_map
-        self.start_state_name = Locator(start_state_name)
+        self.start_state_locator = start_state_locator
         self.update = None
         self.context = None
 
@@ -55,7 +55,7 @@ class StateMachine(dict[str, BaseState]):
         locator = context.user_data.get('locator')
 
         if not locator:
-            self.switch_state(self.start_state_name)
+            self.switch_state(self.start_state_locator)
             return
         else:
             state = self.get(locator.state_name)
