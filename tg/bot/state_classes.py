@@ -50,7 +50,7 @@ class ClassicBaseState(BaseState):
     def get_state_data(self, **params) -> dict:
         return params
 
-    def process(self, update: Update, context: CallbackContext, **params) -> Locator | None:
+    def process(self, update: Update, context: CallbackContext, params) -> Locator | None:
         self.state_data = params
         self.update = update
         self.context = context
@@ -66,7 +66,7 @@ class ClassicBaseState(BaseState):
         pass
 
     def get_markup(self):
-        keyboard = self.inline_keyboard or self.keyboard or []
+        keyboard = self.inline_keyboard or self.keyboard
 
         match keyboard:
             case [[InlineKeyboardButton(), *_], *_]:

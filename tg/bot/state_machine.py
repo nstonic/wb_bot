@@ -24,7 +24,7 @@ class BaseState(ABC):
         pass
 
     @abstractmethod
-    def process(self, update: Update, context: CallbackContext, **params) -> Locator | None:
+    def process(self, update: Update, context: CallbackContext, params) -> Locator | None:
         pass
 
 
@@ -59,7 +59,7 @@ class StateMachine(dict[str, BaseState]):
             return
         else:
             state = self.get(locator.state_name)
-            next_state_locator = state.process(self.update, self.context, **locator.params)
+            next_state_locator = state.process(self.update, self.context, locator.params)
 
         if not next_state_locator:
             return
