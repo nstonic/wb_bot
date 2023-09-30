@@ -185,27 +185,28 @@ class SupplyState(OmniMessageBaseState):
         supply = self.state_data.get('supply')
         orders = self.state_data.get('orders')
 
-        if not supply.is_done:
-            if orders:
-                keyboard = [
-                    [InlineKeyboardButton('Создать стикеры', callback_data='stickers')],
-                    [InlineKeyboardButton('Редактировать заказы', callback_data='edit')],
-                    [InlineKeyboardButton('Отправить в доставку', callback_data='close')]
-                ]
-            else:
-                keyboard = [
-                    [InlineKeyboardButton('Удалить поставку', callback_data='delete')]
-                ]
-        else:
-            keyboard = [
-                [InlineKeyboardButton('Создать стикеры', callback_data='stickers')],
-                [InlineKeyboardButton('QR-код поставки', callback_data='qr')]
-            ]
+        buttons = {
+            'stickers': 'Создать стикеры',
+            'edit': 'Редактировать заказы',
+            'close': 'Отправить в доставку',
+            'delete': 'Удалить поставку',
+            'qr': 'QR-код поставки',
+            'supplies': 'Назад к списку поставок',
+        }
 
-        keyboard.extend([
-            [InlineKeyboardButton('Назад к списку поставок', callback_data='supplies')],
-            _MAIN_MENU_INLINE_BUTTON
-        ])
+        match supply.is_done, orders:
+            case False, orders if orders:
+                case_buttons = ['stickers', 'edit', 'close', 'supplies']
+            case False, orders if not orders:
+                case_buttons = ['delete', 'supplies']
+            case _:
+                case_buttons = ['stickers', 'qr', 'supplies']
+
+        keyboard = [
+            [InlineKeyboardButton(buttons[btn], callback_data=btn)]
+            for btn in case_buttons
+        ]
+        keyboard.append(_MAIN_MENU_INLINE_BUTTON)
         return keyboard
 
     def send_stickers(self):
