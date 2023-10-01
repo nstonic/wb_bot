@@ -1,6 +1,7 @@
 import os
 import pathlib
 from base64 import b64decode
+from contextlib import contextmanager
 from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
 
@@ -32,6 +33,7 @@ def get_supply_sticker(supply_qr_code: SupplyQRCode) -> bytes:
     return supply_sticker
 
 
+@contextmanager
 def get_orders_stickers(
         orders: list[Order],
         products: list[Product],
@@ -69,7 +71,8 @@ def get_orders_stickers(
         for sticker_file in sticker_files:
             archive.writestr(sticker_file.name, sticker_file.getvalue())
             sticker_file.close()
-    return zip_file
+    yield zip_file
+    zip_file.close()
 
 
 def create_stickers_by_article(

@@ -13,14 +13,15 @@ def send_stickers_job(context: CallbackContext):
     )
     articles = set([order.article for order in orders])
     products = [wb_client.get_product(article) for article in articles]
-    zip_file = get_orders_stickers(
+
+    with get_orders_stickers(
         orders,
         products,
         order_qr_codes,
         supply_id
-    )
-    context.bot.send_document(
-        chat_id=context.job.context['chat_id'],
-        document=zip_file.getvalue(),
-        filename=zip_file.name
-    )
+    ) as zip_file:
+        context.bot.send_document(
+            chat_id=context.job.context['chat_id'],
+            document=zip_file.getvalue(),
+            filename=zip_file.name
+        )
