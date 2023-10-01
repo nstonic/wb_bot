@@ -175,7 +175,21 @@ class SupplyState(OmniMessageBaseState):
                 [f'{article} - {count}шт.'
                  for article, count in Counter(sorted(articles)).items()]
             )
-            text = f'Продукция в поставке {supply.name}:\n\n{joined_orders}'
+            orders_count = len(orders)
+            cases = {
+                1: 'заказ',
+                2: 'заказа',
+                3: 'заказа',
+                4: 'заказа',
+                5: 'заказов',
+                6: 'заказов',
+                7: 'заказов',
+                8: 'заказов',
+                9: 'заказов',
+                0: 'заказов',
+            }
+            case = cases[orders_count % 10]
+            text = f'{orders_count} {case} в поставке {supply.name}:\n\n{joined_orders}'
         else:
             text = f'В поставке {supply.name} нет заказов'
 
