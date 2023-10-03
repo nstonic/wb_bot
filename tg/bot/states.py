@@ -176,7 +176,7 @@ class SupplyState(OmniMessageBaseState):
                  for article, count in Counter(sorted(articles)).items()]
             )
             orders_count = len(orders)
-            if 11 < orders_count % 100 < 19:
+            if 11 <= orders_count % 100 <= 19:
                 case = 'заказов'
             else:
                 cases = {
