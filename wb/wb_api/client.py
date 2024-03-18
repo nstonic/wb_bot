@@ -3,8 +3,8 @@ from typing import Iterable, Generator
 import more_itertools
 from requests import Response, request
 
-from .types import Supply, Order, Product, OrderQRCode, SupplyQRCode, OrderStatus
 from .errors import check_response, retry_on_network_error, AuthError
+from .types import Supply, Order, Product, OrderQRCode, SupplyQRCode, OrderStatus
 
 
 class WBApiClient:
@@ -51,10 +51,10 @@ class WBApiClient:
     def get_product(self, article: str) -> Product:
         response = self.make_request(
             'post',
-            'https://suppliers-api.wildberries.ru/content/v1/cards/filter',
-            json={'vendorCodes': [article]}
+            'https://suppliers-api.wildberries.ru/content/v2/get/cards/list',
+            json={'filter': {'textSearch': [article]}}
         )
-        for product_card in response.json()['data']:
+        for product_card in response.json()['cards']:
             if product_card['vendorCode'] == article:
                 return Product.parse_from_card(product_card)
         return Product(article=article)
