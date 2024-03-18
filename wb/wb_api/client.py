@@ -1,4 +1,4 @@
-from typing import Iterable, Generator
+from typing import Generator
 
 import more_itertools
 from requests import Response, request
@@ -58,16 +58,6 @@ class WBApiClient:
             if product_card['vendorCode'] == article:
                 return Product.parse_from_card(product_card)
         return Product(article=article)
-
-    def get_products_by_articles(self, articles: Iterable) -> Generator:
-        for chunk in more_itertools.chunked(articles, 100):
-            response = self.make_request(
-                'post',
-                'https://suppliers-api.wildberries.ru/content/v1/cards/filter',
-                json={'vendorCodes': chunk}
-            )
-            for product_card in response.json()['data']:
-                yield product_card
 
     def get_supplies(self, limit: int = 1000, next: int = 0) -> tuple[list[Supply], int]:
         params = {
