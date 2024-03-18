@@ -67,16 +67,15 @@ class Product:
     @staticmethod
     def parse_from_card(product_card: dict):
         characteristics = {
-            key: value
-            for characteristic in product_card.get('characteristics')
-            for key, value in characteristic.items()
+            characteristic['name']: characteristic['value']
+            for characteristic in product_card.get('characteristics', [{}])
         }
         size, *_ = product_card.get('sizes')
         barcode, *_ = size.get('skus', '')
+        print(characteristics.keys())
         return Product(
             article=product_card.get('vendorCode', ''),
-            name=characteristics.get('Наименование', ''),
-            brand=characteristics.get('Бренд', ''),
+            name=product_card.get('title', ''),
             barcode=barcode,
             colors=characteristics.get('Цвет', []),
             countries=characteristics.get('Страна производства', []),

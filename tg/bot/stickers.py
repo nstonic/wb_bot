@@ -3,6 +3,7 @@ import pathlib
 from base64 import b64decode
 from contextlib import contextmanager
 from io import BytesIO
+from typing import Iterable
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from PIL import Image as PILImage
@@ -52,7 +53,8 @@ def get_orders_stickers(
             filter(
                 lambda p: p.article == article,
                 products
-            )
+            ),
+            Product(article=article)
         )
         orders_qr_codes = [
             qr_code
@@ -110,7 +112,6 @@ def create_stickers_by_article(
             [Paragraph(product.name, style)],
             [Paragraph(f'Артикул: {product.article}', style)],
             [Paragraph(f'Страна: {countries}', style)],
-            [Paragraph(f'Бренд: {product.brand}', style)],
         ]
         if colors:
             data.append([Paragraph(f'Цвет: {colors}', style)])

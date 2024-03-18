@@ -11,8 +11,8 @@ def send_stickers_job(context: CallbackContext):
     order_qr_codes = wb_client.get_qr_codes_for_orders(
         [order.id for order in orders]
     )
-    articles = set([order.article for order in orders])
-    products = [wb_client.get_product(article) for article in articles]
+    articles = {order.article for order in orders}
+    products = list(wb_client.get_products(articles))
 
     with get_orders_stickers(
         orders,

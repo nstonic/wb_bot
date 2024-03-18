@@ -1,3 +1,4 @@
+from pprint import pprint
 from typing import Generator
 
 import more_itertools
@@ -48,16 +49,37 @@ class WBApiClient:
         )
         return Supply.model_validate(response.json())
 
-    def get_product(self, article: str) -> Product:
-        response = self.make_request(
-            'post',
-            'https://suppliers-api.wildberries.ru/content/v2/get/cards/list',
-            json={'filter': {'textSearch': [article]}}
-        )
-        for product_card in response.json()['cards']:
-            if product_card['vendorCode'] == article:
-                return Product.parse_from_card(product_card)
-        return Product(article=article)
+    def get_products(self, articles: set[str]) -> Generator[Product, None, None]:
+        limit = 1000
+        payload = {
+            "settings": {
+                "cursor": {
+                    "limit": limit
+                },
+                "filter": {
+                    "withPhoto": -1
+                }
+            }
+        }
+        while True:
+            response = self.make_request(
+                'post',
+                'https://suppliers-api.wildberries.ru/content/v2/get/cards/list',
+                json=payload,
+            )
+            data = response.json()
+            for product_card in data['cards']:
+                if product_card['vendorCode'] in articles:
+                    yield Product.parse_from_card(product_card)
+                    articles.remove(product_card['vendorCode'])
+                    if not articles:
+                        break
+            else:
+                if data['cursor']['total'] < limit:
+                    break
+                else:
+                    payload['settings']['cursor']['updatedAt'] = data['cursor']['updatedAt']
+                    payload['settings']['cursor']['nmID'] = data['cursor']['nmID']
 
     def get_supplies(self, limit: int = 1000, next: int = 0) -> tuple[list[Supply], int]:
         params = {
