@@ -50,7 +50,7 @@ class WBApiClient:
         return Supply.model_validate(response.json())
 
     def get_products(self, articles: set[str]) -> Generator[Product, None, None]:
-        limit = 1000
+        limit = 100
         payload = {
             "settings": {
                 "cursor": {
