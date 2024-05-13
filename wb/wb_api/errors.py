@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 
 from requests import Response
-from requests.exceptions import ChunkedEncodingError, JSONDecodeError
+from requests.exceptions import ChunkedEncodingError, JSONDecodeError, HTTPError
 
 
 class AuthError(Exception):
@@ -45,14 +45,18 @@ def retry_on_network_error(func):
             try:
                 return func(*args, **kwargs)
             except (ChunkedEncodingError, ConnectionError):
-                right_now = datetime.now().timestamp()
-                delay = min(
-                    0 if right_now - last_error_timestamp > 30 else delay,
-                    10
-                )
-                last_error_timestamp = datetime.now().timestamp()
-                time.sleep(delay)
-                delay += 1
-                continue
+                pass
+            except HTTPError as ex:
+                if '504' not in str(ex):
+                    raise
+
+            right_now = datetime.now().timestamp()
+            delay = min(
+                0 if right_now - last_error_timestamp > 60 else delay,
+                10
+            )
+            last_error_timestamp = datetime.now().timestamp()
+            time.sleep(delay)
+            delay += 2
 
     return wrapper

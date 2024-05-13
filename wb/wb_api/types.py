@@ -72,7 +72,6 @@ class Product:
         }
         size, *_ = product_card.get('sizes')
         barcode, *_ = size.get('skus', '')
-        print(characteristics.keys())
         return Product(
             article=product_card.get('vendorCode', ''),
             name=product_card.get('title', ''),
